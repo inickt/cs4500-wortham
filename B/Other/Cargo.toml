@@ -1,7 +1,7 @@
 [package]
-name = "B"
+name = "xyes"
 version = "0.1.0"
-authors = ["Ryan Drew <ryan.drew14@gmail.com>"]
+authors = ["Ryan Drew <ryan.drew14@gmail.com>", "Jake Fecher <fecher.j@northeastern.edu>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
