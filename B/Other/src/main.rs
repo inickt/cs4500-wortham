@@ -7,6 +7,7 @@ const DEFAULT_OUTPUT: &str = "hello world";
 const ARG_SEPARATOR: &str = " ";
 
 fn main() {
+    // collect args into vector, skip the first (the command invocation "./xyes")
     let args = std::env::args().skip(1).collect();
     let stdout = std::io::stdout();
     yes(args, stdout.lock(), None);
@@ -17,27 +18,41 @@ fn main() {
 // If -limit is the first argument, exclude it from the output, and only print 20 lines.
 // stop_after is used in testing to stop looping after a given time rather than iteration count
 // to test the case where no "-limit" option is given.
-fn yes<W: Write>(args: Vec<String>, mut output_buffer: W, stop_after: Option<Duration>) {
-    let (mut limit, args) = if args.get(0) == Some(&(LIMIT_ARG.to_string())) { 
-        (Some(LIMITED_NUM_LINES), &args[1..])
-    } else {
-        (None, &args[..])
-    };
+fn yes<W: Write>(args: Vec<String>, output_buffer: W, stop_after: Option<Duration>) {
+    let (limit, args) = parse_limit_arg(args.to_owned());
+    let output_line = create_output_line(args);
 
-    let output = if args.is_empty() {
-        DEFAULT_OUTPUT.to_string()
-    } else {
-        args.join(ARG_SEPARATOR)
-    };
+    write_line_repeatedly(output_line, output_buffer, stop_after, limit);
+}
 
+// Determines whether or not there should be a line limit based on the presence of
+// the "-limit" option, and generates a new options vector without that option if it is present
+fn parse_limit_arg(args: Vec<String>) -> (Option<i32>, Vec<String>) {
+    if args.get(0) == Some(&(LIMIT_ARG.to_string())) { 
+        return (Some(LIMITED_NUM_LINES), args[1..].to_vec())
+    } else {
+        return (None, args)
+    };
+}
+
+// Repeatedly writes a line to a buffer
+// Can repeat indefinitely, or stop after number of lines or period of time
+fn write_line_repeatedly<W: Write>(line: String, mut output_buffer: W, stop_after: Option<Duration>, mut line_limit: Option<i32>) {
     let start = Instant::now();
-
-    // if LIMIT_ARG was not passed (limit is None), print output forever
-    // otherwise, print output LIMITED_NUM_LINES times
-    while limit != Some(0) && stop_after.map_or(true, |duration| start.elapsed() <= duration) {
-        writeln!(output_buffer, "{}", output).expect("Error writing to output");
-        limit = limit.map(|x| x - 1);
+    while line_limit != Some(0) && stop_after.map_or(true, |duration| start.elapsed() <= duration) {
+        writeln!(output_buffer, "{}", line).expect("Error writing to output");
+        line_limit = line_limit.map(|x| x - 1);
     }
+}
+
+// Given an array of strings which are the non-option arguments to xyes,
+// creates the corresponding line to display
+fn create_output_line(args: Vec<String>) -> String {
+    if args.is_empty() {
+        return DEFAULT_OUTPUT.to_string()
+    } else {
+        return args.join(ARG_SEPARATOR)
+    };
 }
 
 #[test]
