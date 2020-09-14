@@ -1,8 +1,9 @@
 use std::io::Write;
+use std::cmp::min;
 use std::time::{ Instant, Duration };
 
 const LIMIT_ARG: &str = "-limit";
-const LIMITED_NUM_LINES: i32 = 20;
+const LIMITED_NUM_LINES: usize = 20;
 const DEFAULT_OUTPUT: &str = "hello world";
 const ARG_SEPARATOR: &str = " ";
 
@@ -27,7 +28,7 @@ fn xyes<W: Write>(args: Vec<String>, output_buffer: W, stop_after: Option<Durati
 
 // Determines whether or not there should be a line limit based on the presence of
 // the "-limit" option, and generates a new options vector without that option if it is present
-fn parse_limit_arg(args: Vec<String>) -> (Option<i32>, Vec<String>) {
+fn parse_limit_arg(args: Vec<String>) -> (Option<usize>, Vec<String>) {
     if args.get(0) == Some(&(LIMIT_ARG.to_string())) { 
         (Some(LIMITED_NUM_LINES), args[1..].to_vec())
     } else {
@@ -47,11 +48,22 @@ fn create_output_line(args: Vec<String>) -> String {
 
 // Repeatedly writes a line to a buffer
 // Can repeat indefinitely, or stop after number of lines or period of time
-fn write_line_repeatedly<W: Write>(line: String, mut output_buffer: W, stop_after: Option<Duration>, mut line_limit: Option<i32>) {
+fn write_line_repeatedly<W: Write>(line: String, mut output_buffer: W, stop_after: Option<Duration>, mut line_limit: Option<usize>) {
     let start = Instant::now();
+    let lines: Vec<&str> = line.split("\n").collect();
+
+    // Most of the complexity here comes from handling arguments with embedded newlines so that
+    //   $ ./xyes -limit $'a\nb' $'x\ny'
+    // behaves in the exact same way as
+    //   $ yes $'a\nb' $'x\ny' | head -20 
     while line_limit != Some(0) && stop_after.map_or(true, |duration| start.elapsed() <= duration) {
-        writeln!(output_buffer, "{}", line).expect("Error writing to output");
-        line_limit = line_limit.map(|x| x - 1);
+        let limit = line_limit.unwrap_or(std::usize::MAX);
+
+        for i in 0 .. min(limit, lines.len()) {
+            writeln!(output_buffer, "{}", lines[i]).expect("Error writing to output");
+        }
+
+        line_limit = line_limit.map(|limit| limit.saturating_sub(lines.len()));
     }
 }
 
@@ -103,7 +115,7 @@ fn test_unlimited() -> Result<(), Box<dyn std::error::Error>> {
             let mut buffer = vec![];
             xyes(args.clone(), &mut buffer, Some(duration));
 
-            let output = String::from_utf8(buffer).expect("output contains invalid utf8");
+            let output = String::from_utf8_lossy(&buffer);
             assert!(output.lines().all(|line| line == *expected_output));
             output.len()
         }).collect();
@@ -115,4 +127,17 @@ fn test_unlimited() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(line_counts, sorted_line_counts);
     }
     Ok(())
+}
+
+// When passing -limit, the output should only be 20 lines, even if the input contains newlines.
+#[test]
+fn test_args_containing_newlines() {
+    // ./xyes -limit $'x\ny' $'a\nb'
+    // should print the string "x\ny a\nb" 6 full times then stop after the second newline
+    let args = vec!["-limit".to_string(), "x\ny".to_string(), "a\nb".to_string()];
+    let mut output = vec![];
+    xyes(args, &mut output, None);
+
+    let output = String::from_utf8_lossy(&output);
+    assert!(output.lines().count() == 20);
 }
