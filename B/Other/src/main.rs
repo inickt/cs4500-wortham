@@ -10,7 +10,7 @@ fn main() {
     // collect args into vector, skip the first (the command invocation "./xyes")
     let args = std::env::args().skip(1).collect();
     let stdout = std::io::stdout();
-    yes(args, stdout.lock(), None);
+    xyes(args, stdout.lock(), None);
 }
 
 // Given the command-line arguments (excluding the program name)
@@ -18,7 +18,7 @@ fn main() {
 // If -limit is the first argument, exclude it from the output, and only print 20 lines.
 // stop_after is used in testing to stop looping after a given time rather than iteration count
 // to test the case where no "-limit" option is given.
-fn yes<W: Write>(args: Vec<String>, output_buffer: W, stop_after: Option<Duration>) {
+fn xyes<W: Write>(args: Vec<String>, output_buffer: W, stop_after: Option<Duration>) {
     let (limit, args) = parse_limit_arg(args.to_owned());
     let output_line = create_output_line(args);
 
@@ -29,10 +29,20 @@ fn yes<W: Write>(args: Vec<String>, output_buffer: W, stop_after: Option<Duratio
 // the "-limit" option, and generates a new options vector without that option if it is present
 fn parse_limit_arg(args: Vec<String>) -> (Option<i32>, Vec<String>) {
     if args.get(0) == Some(&(LIMIT_ARG.to_string())) { 
-        return (Some(LIMITED_NUM_LINES), args[1..].to_vec())
+        (Some(LIMITED_NUM_LINES), args[1..].to_vec())
     } else {
-        return (None, args)
-    };
+        (None, args)
+    }
+}
+
+// Given an array of strings which are the non-option arguments to xyes,
+// creates the corresponding line to display
+fn create_output_line(args: Vec<String>) -> String {
+    if args.is_empty() {
+        DEFAULT_OUTPUT.to_string()
+    } else {
+        args.join(ARG_SEPARATOR)
+    }
 }
 
 // Repeatedly writes a line to a buffer
@@ -43,16 +53,6 @@ fn write_line_repeatedly<W: Write>(line: String, mut output_buffer: W, stop_afte
         writeln!(output_buffer, "{}", line).expect("Error writing to output");
         line_limit = line_limit.map(|x| x - 1);
     }
-}
-
-// Given an array of strings which are the non-option arguments to xyes,
-// creates the corresponding line to display
-fn create_output_line(args: Vec<String>) -> String {
-    if args.is_empty() {
-        return DEFAULT_OUTPUT.to_string()
-    } else {
-        return args.join(ARG_SEPARATOR)
-    };
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn test_limit() -> Result<(), Box<dyn std::error::Error>> {
         let mut output = vec![];
         let args = args.iter().map(|arg| arg.to_string()).collect();
 
-        yes(args, &mut output, None);
+        xyes(args, &mut output, None);
 
         let stdout = String::from_utf8(output)?;
         assert_eq!(stdout, *expected_output);
@@ -101,7 +101,7 @@ fn test_unlimited() -> Result<(), Box<dyn std::error::Error>> {
 
         let line_counts: Vec<usize> = times.iter().copied().map(|duration| {
             let mut buffer = vec![];
-            yes(args.clone(), &mut buffer, Some(duration));
+            xyes(args.clone(), &mut buffer, Some(duration));
 
             let output = String::from_utf8(buffer).expect("output contains invalid utf8");
             assert!(output.lines().all(|line| line == *expected_output));
