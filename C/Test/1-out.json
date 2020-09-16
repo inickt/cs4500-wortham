@@ -1,0 +1,2 @@
+{"count":5,"seq":["rtfm",[2,3,4],19,{"float":1.001,"hello":"five","list":[[],false,{"string":"str"}],"nest":{"hi":"i"},"null":null,"t":true},[2,3,13214214214]]}
+[5,[2,3,13214214214],{"float":1.001,"hello":"five","list":[[],false,{"string":"str"}],"nest":{"hi":"i"},"null":null,"t":true},19,[2,3,4],"rtfm"]

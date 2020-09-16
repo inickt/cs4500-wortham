@@ -1,0 +1,19 @@
+"rtfm"
+[2,3
+    ,4]
+            19
+{"hello":
+"five", "float": 1.001,
+
+
+"null": null,
+"t":   true,
+     "nest"     :  { "hi": "i" },
+"list": [[], false, {
+    "string": "str"
+}]}
+[
+2,
+3,
+13214214214
+]
