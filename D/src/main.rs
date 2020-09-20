@@ -65,12 +65,15 @@ fn main() {
     let application = gtk::Application::new(None, Default::default())
         .expect("Initialization failed...");
 
-    let size = match std::env::args().nth(1).and_then(|arg| arg.parse::<u64>().ok()) {
+    let size = match std::env::args().nth(1)
+        .and_then(|arg| arg.parse::<u64>().ok())
+        .filter(|&x| x > 0)
+    {
         Some(arg) => arg as f64,
         None => {
             println!("usage: ./xgui positive-integer");
             return;
-        },
+        }
     };
 
     let hexagon = Hexagon::new(size);
