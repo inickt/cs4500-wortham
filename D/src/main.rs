@@ -22,29 +22,32 @@ fn build_ui(application: &gtk::Application, hexagon: Hexagon) {
     });
 }
 
-fn bounds_check(points: &Hexagon, x: f64, y: f64) -> bool {
-    let xs = points.iter().map(|&(x, _)| x).collect::<Vec<_>>();
-    let ys = points.iter().map(|&(_, y)| y).collect::<Vec<_>>();
+fn is_mouse_in_hexagon(hexagon: &Hexagon, x: f64, y: f64) -> bool {
+    let (_, height) = get_size(hexagon);
+    let size = height as f64 / 2.0;
 
-    let mut c = false;
-    let indices = [5, 0, 1, 2, 3, 4, 5];
+    // booleans representing different "inside of hexagon" cases
 
-    for index in 1..indices.len() {
-        let (i, j) = (indices[index], indices[index - 1]);
+    // y <= size + x
+    let bot_left = y <= size + x;
+     
+    // y >= size - x
+    let top_left = y >= size - x;
 
-        if ((ys[i] > y) != (ys[j] > y)) && (x < (xs[j] - xs[i]) * (y - ys[i]) / (ys[j] - ys[i]) + xs[i]) {
-            c = !c;
-        }
-    }
+    // y <= 4 * size - x
+    let bot_right = y <= 4.0 * size - x;
 
-    c
+    // y >= -2 * size + x
+    let top_right = y >= -2.0 * size + x;
+
+    bot_left && top_left && bot_right && top_right
 }
 
 fn on_click(hexagon: Hexagon) -> impl Fn(&gtk::ApplicationWindow, &gdk::EventButton) -> Inhibit {
     move |window, event| {
         if event.get_event_type() == gdk::EventType::ButtonPress && event.get_button() == LEFT_CLICK {
             let (x, y) = event.get_coords().unwrap();
-            if bounds_check(&hexagon, x, y) {
+            if is_mouse_in_hexagon(&hexagon, x, y) {
                 window.destroy();
             }
         }
