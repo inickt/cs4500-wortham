@@ -62,9 +62,6 @@ fn on_click(hexagon: Hexagon) -> impl Fn(&gtk::ApplicationWindow, &gdk::EventBut
 }
 
 fn main() {
-    let application = gtk::Application::new(None, Default::default())
-        .expect("Initialization failed...");
-
     let size = match std::env::args().nth(1)
         .and_then(|arg| arg.parse::<u64>().ok())
         .filter(|&x| x > 0)
@@ -75,6 +72,9 @@ fn main() {
             return;
         }
     };
+
+    let application = gtk::Application::new(None, Default::default())
+        .expect("Initialization failed...");
 
     let hexagon = Hexagon::new(size);
 
