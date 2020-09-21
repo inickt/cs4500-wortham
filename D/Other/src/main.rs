@@ -61,6 +61,29 @@ fn on_click(hexagon: Hexagon) -> impl Fn(&gtk::ApplicationWindow, &gdk::EventBut
     }
 }
 
+fn build_ui(application: &gtk::Application, hexagon: Hexagon) {
+    let drawing_area = DrawingArea::new();
+
+    let hexagon_copy = hexagon.clone();
+    drawing_area.connect_draw(move |_, context| {
+        context.set_source_rgb(1.0, 0.0, 0.0);
+
+        for (x, y) in hexagon_copy.0.iter().copied() {
+            context.line_to(x, y);
+        }
+
+        context.fill();
+        Inhibit(false)
+    });
+
+    let window = gtk::ApplicationWindow::new(application);
+    let (width, height) = hexagon.dimensions();
+    window.set_default_size(width, height);
+    window.add(&drawing_area);
+    window.connect_button_press_event(on_click(hexagon));
+    window.show_all();
+}
+
 fn main() {
     let size = match std::env::args().nth(1)
         .and_then(|arg| arg.parse::<u64>().ok())
@@ -85,25 +108,12 @@ fn main() {
     application.run(&[]);
 }
 
-fn build_ui(application: &gtk::Application, hexagon: Hexagon) {
-    let drawing_area = DrawingArea::new();
+#[test]
+fn test_invalid_args() {
+    use std::process::Command;
 
-    let hexagon_copy = hexagon.clone();
-    drawing_area.connect_draw(move |_, context| {
-        context.set_source_rgb(1.0, 0.0, 0.0);
-
-        for (x, y) in hexagon_copy.0.iter().copied() {
-            context.line_to(x, y);
-        }
-
-        context.fill();
-        Inhibit(false)
-    });
-
-    let window = gtk::ApplicationWindow::new(application);
-    let (width, height) = hexagon.dimensions();
-    window.set_default_size(width, height);
-    window.add(&drawing_area);
-    window.connect_button_press_event(on_click(hexagon));
-    window.show_all();
+    for testcase in &["-1", "0", "3.0"] {
+        let stdout = Command::new("../xgui").arg(testcase).output().unwrap().stdout;
+        assert_eq!("usage: ./xgui positive-integer\n", String::from_utf8_lossy(&stdout));
+    }
 }
