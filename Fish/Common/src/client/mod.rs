@@ -1,10 +1,11 @@
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::DrawingArea;
+use gtk::{Image, DrawingArea};
 use std::cmp::max;
 use crate::common::tile::Tile;
 
 const LEFT_CLICK: u32 = 1;
+const IMAGE_FILENAME: &str = "../../assets/fish.png";
 
 #[derive(Clone)]
 struct Hexagon(pub [(f64, f64); 6]);
@@ -35,6 +36,10 @@ impl Hexagon {
     fn size(&self) -> i32 {
         self.dimensions().1 / 2
     }
+}
+
+fn make_fish_image() -> Image {
+    Image::new_from_file(IMAGE_FILENAME)
 }
 
 /// Generates a GTK drawing of a specific hexagon
