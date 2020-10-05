@@ -1,7 +1,7 @@
-mod board;
-mod tile;
-mod direction;
+mod client;
+mod common;
 
 fn main() {
-    println!("Hello, not world!");
+    let tile = common::tile::Tile::new(0, 3);
+    client::show_tile(&tile);
 }

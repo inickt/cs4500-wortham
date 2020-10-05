@@ -1,4 +1,5 @@
-use crate::tile::{ Tile, TileId };
+use crate::common::tile::{ Tile, TileId };
+use crate::common::posn::Posn;
 use std::collections::HashMap;
 
 pub struct Board {
@@ -68,20 +69,25 @@ impl Board {
         }
     }
 
-    // Creates a board that has holes in specific places and is set
-    // up with a minimum number of 1-fish tiles
-    fn with_holes(rows: u32, columns: u32, mut holes: Vec<(u32, u32)>, min_tiles_with_1_fish: u32) -> Board {
+    /// Creates a board that has holes in specific places and is set
+    /// up with a minimum number of 1-fish tiles
+    fn with_holes(rows: u32, columns: u32, mut holes: Vec<Posn>, min_tiles_with_1_fish: u32) -> Board {
         let mut board = Board::with_no_holes(rows, columns, 1);
 
-        // Sort and remove all duplicate holes that may be in the Vec
-        holes.sort();
-        holes.dedup();
+        holes.sort(); // sort in some arbitrary way to collect duplicates together
+        holes.dedup(); // remove all consecutive duplicates
         let num_tiles_without_holes = rows * columns - holes.len() as u32;
 
         assert!(num_tiles_without_holes < min_tiles_with_1_fish,
             "Board::with_holes was required to create a board with a minimum of {} 1 fish tiles,
              but was unable to because the maximum number of non-hole tiles it could create is only {}",
             min_tiles_with_1_fish, num_tiles_without_holes);
+
+        for hole in holes {
+            if let Some(id) = Board::get_tile_id(columns as i64, rows as i64, hole.x as i64, hole.y as i64) {
+                board.remove_tile(id);
+            }
+        }
 
         board
     }

@@ -1,6 +1,6 @@
 use std::hash::{ Hash, Hasher };
-use crate::direction::Direction;
-use crate::board::Board;
+use crate::common::direction::Direction;
+use crate::common::board::Board;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct TileId(pub usize);
