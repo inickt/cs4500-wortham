@@ -38,7 +38,7 @@ impl Direction {
 
 
 #[test]
-fn opposite() {
+fn test_opposite() {
     assert_eq!(Direction::opposite(Direction::Southeast), Direction::Northwest);
     assert_eq!(Direction::opposite(Direction::Northwest), Direction::Southeast);
     assert_eq!(Direction::opposite(Direction::Northeast), Direction::Southwest);
@@ -48,7 +48,7 @@ fn opposite() {
 }
 
 #[test]
-fn iter() {
+fn test_iter() {
     let direction_iter = Direction::iter();
     assert_eq!(direction_iter.size_hint(), (6, Some(6)));
     let direction_iter_collection : Vec<Direction> = direction_iter.collect();

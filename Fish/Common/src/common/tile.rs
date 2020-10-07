@@ -2,11 +2,11 @@ use std::hash::{ Hash, Hasher };
 use crate::common::direction::Direction;
 use crate::common::board::Board;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TileId(pub usize);
 
 /// Represents a single tile on the game board.
-#[derive(Eq)]
+#[derive(Eq, Debug)]
 pub struct Tile {
     /// A Tile's tile_id is it's unique index in the Board.tiles Vec
     pub tile_id: TileId,
@@ -135,4 +135,47 @@ impl Tile {
             }
         }
     }
+}
+
+// Can we use Tile::new to initialize tiles?
+#[test]
+fn test_tile_new() {
+    let tile = Tile::new(1, 4);
+    assert_eq!(tile.southeast, None);
+    assert_eq!(tile.northwest, None);
+    assert_eq!(tile.fish_count, 4);
+}
+
+// Make sure tiles with same ID are equal, and with different IDs are not equal
+#[test]
+fn test_tile_eq() {
+    let tile1 = Tile::new(1, 4);
+    let tile2 = Tile::new(1, 4);
+    let tile3 = Tile::new(2, 4);
+
+    assert_eq!(tile1, tile2);
+    assert_ne!(tile1, tile3);
+}
+
+// Can we get the neighbor IDs in a given direction?
+#[test]
+fn test_tile_get_neighbor_id() {
+    let mut tile1 = Tile::new(1, 4);
+    let tile2 = Tile::new(2, 4);
+    tile1.southeast = Some(tile2.tile_id);
+    let se = Direction::Southeast;
+    assert_eq!(tile1.get_neighbor_id(se), Some(&tile2.tile_id));
+}
+
+#[test]
+fn test_get_neighbor_id_mut() {
+    let mut tile1 = Tile::new(1, 4);
+    let tile2 = Tile::new(2, 4);
+    let tile3 = Tile::new(3, 4);
+    tile1.southeast = Some(tile2.tile_id);
+    let se = Direction::Southeast;
+    assert_eq!(tile1.get_neighbor_id_mut(se), &mut Some(tile2.tile_id));
+    *tile1.get_neighbor_id_mut(se) = Some(tile3.tile_id);
+    assert_ne!(tile1.get_neighbor_id_mut(se), &mut Some(tile2.tile_id));
+    assert_eq!(tile1.get_neighbor_id_mut(se), &mut Some(tile3.tile_id));
 }
