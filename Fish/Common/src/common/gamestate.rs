@@ -1,5 +1,6 @@
 use crate::common::board::Board;
 use crate::common::tile::{ TileId, Tile };
+use crate::common::boardposn::BoardPosn;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -11,7 +12,7 @@ pub struct SharedGameState {
 }
 
 pub fn new_gamestate(rows: u32, columns: u32, fish_per_tile: u8) -> GameState {
-    let board = Board::with_no_holes(rows, columns, fish_per_tile);
+    let board = Board::with_holes(rows, columns, vec![(1,1).into(), (2,2).into()], 4);
     let shared_state = SharedGameState { board };
     Rc::new(RefCell::new(shared_state))
 }

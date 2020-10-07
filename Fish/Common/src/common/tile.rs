@@ -50,8 +50,13 @@ impl Tile {
         }
     }
 
-    /// Given a Tile and a Direction, return the first tile in the given
-    /// direction from the starting tile, or None if there is no tile there.
+    /// Get the amount of fish on this Tile
+    fn get_fish_count(&self) -> u8 {
+        self.fish_count
+    }
+
+    /// Return the first tile in the given direction from the starting tile, 
+    /// or None if there is no tile there.
     fn get_neighbor<'b>(&self, board: &'b Board, direction: Direction) -> Option<&'b Tile> {
         self.get_neighbor_id(direction)
             .and_then(|id| board.tiles.get(id))
@@ -167,6 +172,8 @@ fn test_tile_get_neighbor_id() {
     assert_eq!(tile1.get_neighbor_id(se), Some(&tile2.tile_id));
 }
 
+// Can we get mutable references neighbor IDs in a given direction,
+// and can we actually mutate those references?
 #[test]
 fn test_get_neighbor_id_mut() {
     let mut tile1 = Tile::new(1, 4);
