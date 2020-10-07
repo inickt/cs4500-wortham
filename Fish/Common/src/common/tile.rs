@@ -133,7 +133,7 @@ impl Tile {
     /// Sets neighbors' references of this Tile to None, effectively removing it from the Tile set.
     /// Note that because this function consumes self you cannot call it without already removing
     /// the tile from the board.
-    pub fn unlink_from_neighbors(mut self, board: &mut Board) {
+    pub fn unlink_from_neighbors(self, board: &mut Board) {
         for direction in Direction::iter() {
             if let Some(neighbor) = self.get_neighbor_mut(board, direction) {
                 *neighbor.get_neighbor_id_mut(direction.opposite()) = None;
