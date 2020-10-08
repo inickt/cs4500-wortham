@@ -60,6 +60,9 @@ Take note of the conditions under which each message can be sent;
 failure to adhere to these conditions will result in termination
 from the game. If the Winning Players list in the Game State takes
 a Some value, the server will stop accepting messages and the game is over.
+When the Referee is created, it will know all of the players of its game
+through startup parameters, so there is no need for a Player join message
+since Players cannot join mid-game.
 
 1. PlacePenguin: Places an unused penguin on the given tile. Can only
 be sent when a player has unplaced penguins.

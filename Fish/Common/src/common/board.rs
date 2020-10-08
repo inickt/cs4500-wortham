@@ -12,26 +12,26 @@ impl Board {
     /// Creates a board that has the same number of fish on every tile and has no holes
     ///
     /// a 3 x 4 matrix of tiles:
-    /// [0,0]     [1,0]     [2,0]              is-odd-row = 0
-    ///     [0,1]     [1,1]     [2,1]          is-odd-row = 1
-    /// [0,2]     [1,2]     [2,2]              is-odd-row = 0
-    ///     [0,3]     [1,3]    [2,3]           is-odd-row = 1
+    /// [0,0]     [1,0]     [2,0]              is-odd-row = 0, is-even-row = 1
+    ///     [0,1]     [1,1]     [2,1]          is-odd-row = 1, is-even-row = 0
+    /// [0,2]     [1,2]     [2,2]              is-odd-row = 0, is-even-row = 1
+    ///     [0,3]     [1,3]    [2,3]           is-odd-row = 1, is-even-row = 0
     ///
     /// Will be assigned the following TileIds:
-    /// 0 4 8
-    /// 1 5 9
-    /// 2 6 10
-    /// 3 7 11
+    /// 0   4   8
+    ///   1   5   9
+    /// 2   6   10
+    ///   3   7   11
     ///
     /// Using these formulas to calculate the neighbors of a given tile, provided
     /// it is within bounds of the board itself:
     /// 
     /// northeast tile = [x + is-odd-row, y - 1]
-    /// northwest tile = [x - is-odd-row, y - 1]
-    /// east tile = [x - 1, y]
-    /// west tile = [x + 1, y]
+    /// northwest tile = [x - is-even-row, y - 1]
+    /// north tile = [x, y - 2]
+    /// south tile = [x, y + 2]
     /// southeast tile = [x + is-odd-row, y + 1]
-    /// southwest tile = [x - is-odd-row, y + 1]
+    /// southwest tile = [x - is-even-row, y + 1]
     pub fn with_no_holes(rows: u32, columns: u32, fish_per_tile: u8) -> Board {
         let mut tiles = HashMap::new();
 
@@ -42,17 +42,18 @@ impl Board {
         for x in 0 .. width {
             for y in 0 .. height { // ids are generated in row-major order
                 let is_odd_row = y % 2; // 1 if odd, 0 if not
+                let is_even_row = (y + 1) % 2;
                 let tile_id = Board::get_tile_id(width, height, x, y).unwrap();
 
                 tiles.insert(tile_id, Tile {
                     tile_id,
                     fish_count: fish_per_tile,
                     northeast: Board::get_tile_id(width, height, x + is_odd_row, y - 1),
-                    northwest: Board::get_tile_id(width, height, x - is_odd_row, y - 1),
-                    east:      Board::get_tile_id(width, height, x + 1, y),
-                    west:      Board::get_tile_id(width, height, x - 1, y),
+                    northwest: Board::get_tile_id(width, height, x - is_even_row, y - 1),
+                    north:     Board::get_tile_id(width, height, x, y - 2),
+                    south:     Board::get_tile_id(width, height, x, y + 2),
                     southeast: Board::get_tile_id(width, height, x + is_odd_row, y + 1),
-                    southwest: Board::get_tile_id(width, height, x - is_odd_row, y + 1),
+                    southwest: Board::get_tile_id(width, height, x - is_even_row, y + 1),
                 });
             }
         }
@@ -112,4 +113,62 @@ impl Board {
             false
         }
     }
+}
+
+// Can we use Board::with_no_holes to initialize tiles?
+// Do these tiles get arranged in the right order and
+// with the right amount of fish?
+#[test]
+fn test_board_with_no_holes() {
+    let b = Board::with_no_holes(3, 2, 4);
+    // IDs arrangement
+    // 0   3
+    //   1   4
+    // 2   5
+    assert_eq!(b.tiles.len(), 6);
+    assert_eq!(b.width, 2);
+    assert_eq!(b.height, 3);
+    assert_eq!(b.tiles[&TileId(0)].southeast, Some(TileId(1)));
+    assert_eq!(b.tiles[&TileId(3)].southwest, Some(TileId(1)));
+    assert_eq!(b.tiles[&TileId(2)].northeast, Some(TileId(1)));
+    assert_eq!(b.tiles[&TileId(1)].northwest, Some(TileId(0)));
+    assert_eq!(b.tiles[&TileId(5)].north, Some(TileId(3)));
+    assert_eq!(b.tiles[&TileId(0)].south, Some(TileId(2)));
+
+    for i in 0 .. 6 {
+        assert_eq!(b.tiles[&TileId(i)].fish_count, 4);
+    }
+}
+
+// Can we use Board::with_holes to initialize tiles?
+// Do these tiles get arranged in the right order and
+// with the right amount of fish? Are the holes present?
+#[test]
+fn test_board_with_holes() {
+    let holes = vec![(1, 0).into(), (1, 2).into()];
+    let b = Board::with_holes(3, 2, holes, 4);
+    // IDs arrangement
+    // 0   -
+    //   1   4
+    // 2   -
+    assert_eq!(b.tiles.len(), 4);
+    assert_eq!(b.width, 2);
+    assert_eq!(b.height, 3);
+    assert_eq!(b.tiles[&TileId(0)].southeast, Some(TileId(1)));
+    assert_eq!(b.tiles[&TileId(1)].northwest, Some(TileId(0)));
+    assert_eq!(b.tiles[&TileId(2)].southwest, None); // out of bounds
+    assert_eq!(b.tiles[&TileId(1)].northeast, None); // hole
+    assert_eq!(b.tiles[&TileId(2)].northeast, Some(TileId(1)));
+    assert_eq!(b.tiles[&TileId(2)].southeast, None); // out of bounds
+    assert_eq!(b.tiles[&TileId(4)].southeast, None); // out of bounds
+    assert_eq!(b.tiles[&TileId(4)].southwest, None); // hole
+    assert_eq!(b.tiles[&TileId(2)].north, Some(TileId(0)));
+    assert_eq!(b.tiles[&TileId(0)].south, Some(TileId(2)));
+    assert_eq!(b.tiles.get(&TileId(3)), None);
+    assert_eq!(b.tiles.get(&TileId(5)), None);
+
+    assert_eq!(b.tiles[&TileId(0)].fish_count, 1);
+    assert_eq!(b.tiles[&TileId(1)].fish_count, 1);
+    assert_eq!(b.tiles[&TileId(2)].fish_count, 1);
+    assert_eq!(b.tiles[&TileId(4)].fish_count, 1);
 }

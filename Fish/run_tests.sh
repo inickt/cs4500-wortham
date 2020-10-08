@@ -1,0 +1,1 @@
+cd Common && cargo test "$@"

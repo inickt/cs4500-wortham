@@ -18,8 +18,8 @@ pub struct Tile {
     // or a hole in the given direction then the tile is None
     pub northeast: Option<TileId>,
     pub northwest: Option<TileId>,
-    pub east: Option<TileId>,
-    pub west: Option<TileId>,
+    pub north: Option<TileId>,
+    pub south: Option<TileId>,
     pub southeast: Option<TileId>,
     pub southwest: Option<TileId>,
 }
@@ -43,8 +43,8 @@ impl Tile {
             fish_count,
             northeast: None,
             northwest: None,
-            east: None,
-            west: None,
+            north: None,
+            south: None,
             southeast: None,
             southwest: None,
         }
@@ -74,8 +74,8 @@ impl Tile {
         match direction {
             Direction::Northeast => self.northeast.as_ref(),
             Direction::Northwest => self.northwest.as_ref(),
-            Direction::East => self.east.as_ref(),
-            Direction::West => self.west.as_ref(),
+            Direction::North => self.north.as_ref(),
+            Direction::South => self.south.as_ref(),
             Direction::Southeast => self.southeast.as_ref(),
             Direction::Southwest => self.southwest.as_ref(),
         }
@@ -87,8 +87,8 @@ impl Tile {
         match direction {
             Direction::Northeast => &mut self.northeast,
             Direction::Northwest => &mut self.northwest,
-            Direction::East => &mut self.east,
-            Direction::West => &mut self.west,
+            Direction::North => &mut self.north,
+            Direction::South => &mut self.south,
             Direction::Southeast => &mut self.southeast,
             Direction::Southwest => &mut self.southwest,
         }

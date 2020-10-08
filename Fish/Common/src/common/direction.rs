@@ -6,8 +6,8 @@ use self::Direction::*;
 pub enum Direction {
     Northeast,
     Northwest,
-    East,
-    West,
+    North,
+    South,
     Southeast,
     Southwest
 }
@@ -17,8 +17,8 @@ impl Direction {
         vec![
             Northeast,
             Northwest,
-            East,
-            West,
+            North,
+            South,
             Southeast,
             Southwest
         ].into_iter()
@@ -28,8 +28,8 @@ impl Direction {
         match self {
             Northeast => Southwest,
             Northwest => Southeast,
-            East => West,
-            West => East,
+            North => South,
+            South => North,
             Southeast => Northwest,
             Southwest => Northeast,
         }
@@ -43,8 +43,8 @@ fn test_opposite() {
     assert_eq!(Direction::opposite(Direction::Northwest), Direction::Southeast);
     assert_eq!(Direction::opposite(Direction::Northeast), Direction::Southwest);
     assert_eq!(Direction::opposite(Direction::Southwest), Direction::Northeast);
-    assert_eq!(Direction::opposite(Direction::West), Direction::East);
-    assert_eq!(Direction::opposite(Direction::East), Direction::West);
+    assert_eq!(Direction::opposite(Direction::North), Direction::South);
+    assert_eq!(Direction::opposite(Direction::South), Direction::North);
 }
 
 #[test]
@@ -57,8 +57,8 @@ fn test_iter() {
         Direction::Southeast,
         Direction::Northwest,
         Direction::Southwest,
-        Direction::East,
-        Direction::West
+        Direction::North,
+        Direction::South
     ] {
         assert!(direction_iter_collection.contains(&dir));
     }
