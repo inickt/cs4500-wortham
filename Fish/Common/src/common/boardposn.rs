@@ -6,7 +6,7 @@
 //! writing function signatures (see Board::with_holes for an example).
 
 /// Represents the column and row of a tile on the game 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct BoardPosn {
     pub x: u32,
     pub y: u32,
