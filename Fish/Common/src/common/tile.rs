@@ -51,7 +51,7 @@ impl Tile {
     }
 
     /// Get the amount of fish on this Tile
-    fn get_fish_count(&self) -> u8 {
+    pub fn get_fish_count(&self) -> u8 {
         self.fish_count
     }
 

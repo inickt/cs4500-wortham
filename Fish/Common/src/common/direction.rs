@@ -1,7 +1,11 @@
+//! The direction module contains the Direction type and utilities to
+//! operate on it. A Direction is an enumeration of the 6 possible
+//! directions that can be moved from each hexagonal tile. Directions
+//! are commonly used in the tile module to access tile neighbors.
 use self::Direction::*;
 
-// Represents a direction from a tile on the game board.
-// Note that tiles do not have tiles directly to the North and South.
+/// Represents a direction from a hexagonal tile on the game board.
+/// Note that tiles do not have tiles directly to the East or West.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
     Northeast,
@@ -13,7 +17,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn iter() -> impl Iterator<Item = Direction> {
+    pub fn iter() -> impl ExactSizeIterator<Item = Direction> {
         vec![
             Northeast,
             Northwest,
@@ -39,27 +43,20 @@ impl Direction {
 
 #[test]
 fn test_opposite() {
-    assert_eq!(Direction::opposite(Direction::Southeast), Direction::Northwest);
-    assert_eq!(Direction::opposite(Direction::Northwest), Direction::Southeast);
-    assert_eq!(Direction::opposite(Direction::Northeast), Direction::Southwest);
-    assert_eq!(Direction::opposite(Direction::Southwest), Direction::Northeast);
-    assert_eq!(Direction::opposite(Direction::North), Direction::South);
-    assert_eq!(Direction::opposite(Direction::South), Direction::North);
+    assert_eq!(Direction::opposite(Northeast), Southwest);
+    assert_eq!(Direction::opposite(Northwest), Southeast);
+    assert_eq!(Direction::opposite(North), South);
+    assert_eq!(Direction::opposite(South), North);
+    assert_eq!(Direction::opposite(Southeast), Northwest);
+    assert_eq!(Direction::opposite(Southwest), Northeast);
 }
 
 #[test]
 fn test_iter() {
     let direction_iter = Direction::iter();
-    assert_eq!(direction_iter.size_hint(), (6, Some(6)));
+    assert_eq!(direction_iter.len(), 6);
     let direction_iter_collection : Vec<Direction> = direction_iter.collect();
-    for dir in vec![
-        Direction::Northeast, 
-        Direction::Southeast,
-        Direction::Northwest,
-        Direction::Southwest,
-        Direction::North,
-        Direction::South
-    ] {
-        assert!(direction_iter_collection.contains(&dir));
+    for dir in &[Northeast, Northwest, North, South, Southeast, Southwest] {
+        assert!(direction_iter_collection.contains(dir));
     }
 }
