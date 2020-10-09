@@ -1,3 +1,11 @@
+//! The tile module represents the data model and some business logic
+//! for the tiles of the fish game board.
+//! 
+//! Tiles are represented as a graph, with each knowing its
+//! six neighbors: north, south, northeast, southeast, northwest,
+//! and southwest. The tiles also have unique IDs and counts
+//! of the amount of fish on them.
+
 use std::hash::{ Hash, Hasher };
 use crate::common::direction::Direction;
 use crate::common::board::Board;
@@ -6,7 +14,7 @@ use crate::common::board::Board;
 pub struct TileId(pub usize);
 
 /// Represents a single tile on the game board.
-#[derive(Eq, Debug)]
+#[derive(Eq)]
 pub struct Tile {
     /// A Tile's tile_id is it's unique index in the Board.tiles Vec
     pub tile_id: TileId,
@@ -185,4 +193,57 @@ fn test_get_neighbor_id_mut() {
     *tile1.get_neighbor_id_mut(se) = Some(tile3.tile_id);
     assert_ne!(tile1.get_neighbor_id_mut(se), &mut Some(tile2.tile_id));
     assert_eq!(tile1.get_neighbor_id_mut(se), &mut Some(tile3.tile_id));
+}
+
+// Can we get the neighbor of a Tile in any direction given a board?
+#[test]
+fn test_get_neighbor() {
+    // 3 x 4 board should look like:
+    // 0    3    6    9
+    //   1    4    7    10
+    // 2    5    8    11
+    let b = Board::with_no_holes(3, 4, 4);
+    let tile_5 = b.tiles.get(&TileId(5)).unwrap();
+    let tile_4 = b.tiles.get(&TileId(4)).unwrap();
+    let tile_3 = b.tiles.get(&TileId(3)).unwrap();
+    let tile_1 = b.tiles.get(&TileId(1)).unwrap();
+    assert_eq!(tile_5.get_neighbor(&b, Direction::North), Some(tile_3));
+    assert_eq!(tile_3.get_neighbor(&b, Direction::South), Some(tile_5));
+    assert_eq!(tile_5.get_neighbor(&b, Direction::Northeast), Some(tile_4));
+    assert_eq!(tile_4.get_neighbor(&b, Direction::Southwest), Some(tile_5));
+    assert_eq!(tile_5.get_neighbor(&b, Direction::Northwest), Some(tile_1));
+    assert_eq!(tile_1.get_neighbor(&b, Direction::Southeast), Some(tile_5));
+}
+
+#[test]
+fn test_all_reachable_tiles_in_direction() {
+    let b = Board::with_no_holes(3, 4, 4);
+    let tile_5 = b.tiles.get(&TileId(5)).unwrap();
+    assert_eq!(tile_5.all_reachable_tiles_in_direction(&b, Direction::North), vec![
+        &b.tiles[&TileId(3)],
+        &b.tiles[&TileId(5)]
+    ]);
+}
+
+impl std::fmt::Debug for Tile {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.tile_id.0)
+    }
+}
+
+#[test]
+fn test_all_reachable_tiles() {
+    // 3 x 4 board should look like:
+    // 0    3    6    9
+    //   1    4    7    10
+    // 2    5    8    11
+    let b = Board::with_no_holes(3, 4, 4);
+    let tile_5 = b.tiles.get(&TileId(5)).unwrap();
+    let expected_reachable = vec![
+        &b.tiles[&TileId(2)],
+        &b.tiles[&TileId(3)],
+        &b.tiles[&TileId(8)],
+        &b.tiles[&TileId(11)],
+    ];
+    assert_eq!(tile_5.all_reachable_tiles(&b), expected_reachable);
 }

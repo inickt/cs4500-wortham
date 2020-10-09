@@ -242,8 +242,7 @@ fn test_board_remove_tile() {
     assert_eq!(Some(tile_neighbor_sw.tile_id), tile_to_remove.southwest);
     assert_eq!(tile_neighbor_se.northwest, Some(tile_to_remove.tile_id));
     assert_eq!(tile_neighbor_sw.northeast, Some(tile_to_remove.tile_id));
-    let result = b.remove_tile(TileId(2));
-    assert!(result);
+    assert!(b.remove_tile(TileId(2)));
     let tile_neighbor_se = &b.tiles[&TileId(3)];
     let tile_neighbor_sw = &b.tiles[&TileId(1)];
     assert_eq!(b.tiles.len(), old_num_tiles - 1);
