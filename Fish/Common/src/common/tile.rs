@@ -7,6 +7,7 @@
 //! of the amount of fish on them.
 
 use std::hash::{ Hash, Hasher };
+use std::fmt::Debug;
 use crate::common::direction::Direction;
 use crate::common::board::Board;
 
@@ -41,6 +42,12 @@ impl PartialEq for Tile {
 impl Hash for Tile {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.tile_id.hash(state);
+    }
+}
+
+impl Debug for Tile {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.tile_id.0)
     }
 }
 
@@ -223,12 +230,12 @@ fn test_all_reachable_tiles_in_direction() {
         &b.tiles[&TileId(3)],
         &b.tiles[&TileId(5)]
     ]);
-}
+    assert_eq!(tile_5.all_reachable_tiles_in_direction(&b, Direction::Northeast), vec![
+        &b.tiles[&TileId(6)],
+        &b.tiles[&TileId(4)],
+        &b.tiles[&TileId(5)]
+    ]);
 
-impl std::fmt::Debug for Tile {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.tile_id.0)
-    }
 }
 
 #[test]
@@ -240,10 +247,12 @@ fn test_all_reachable_tiles() {
     let b = Board::with_no_holes(3, 4, 4);
     let tile_5 = b.tiles.get(&TileId(5)).unwrap();
     let expected_reachable = vec![
-        &b.tiles[&TileId(2)],
+        &b.tiles[&TileId(5)],
+        &b.tiles[&TileId(6)],
+        &b.tiles[&TileId(4)],
+        &b.tiles[&TileId(0)],
+        &b.tiles[&TileId(1)],
         &b.tiles[&TileId(3)],
-        &b.tiles[&TileId(8)],
-        &b.tiles[&TileId(11)],
     ];
     assert_eq!(tile_5.all_reachable_tiles(&b), expected_reachable);
 }
