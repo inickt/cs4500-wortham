@@ -5,8 +5,11 @@
 //! The Board and its contained Tiles are part of the GameState, and are thus
 //! serialized to be sent over the network from the server to each client (TBD).
 pub mod board;
-pub mod gamestate;
 pub mod boardposn;
+pub mod gamestate;
+pub mod player;
 pub mod tile;
 
 mod direction;
+mod penguin;
+mod util;

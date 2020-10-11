@@ -12,7 +12,16 @@ use crate::common::tile::{ Tile, TileId };
 use crate::common::boardposn::BoardPosn;
 use std::collections::HashMap;
 
-// Represents the Fish game board
+/// The fish game board is a mapping of tiles from their unique tile ids to
+/// their Tile representation. This is essentially a Graph of tiles where each
+/// tile is a node on the graph containing its adjacency list within. The Board
+/// itself thus doesn't directly care about the location/ordering of any tile,
+/// though it does provide convenience methods for the client graphics program
+/// to get the position of a given tile for rendering. See the ASCII art in the
+/// documentation for Board::with_no_holes for more information on how tile ids
+/// are made and translated to/from board positions. It should be noted though
+/// that a tile's adjacency list is the preferred method for working on it within
+/// game rules validation code.
 pub struct Board {
     pub tiles: HashMap<TileId, Tile>,
     width: u32,

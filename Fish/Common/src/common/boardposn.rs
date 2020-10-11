@@ -5,7 +5,8 @@
 //! arbitrary x, y screen positions from x, y board positions when
 //! writing function signatures (see Board::with_holes for an example).
 
-/// Represents the column and row of a tile on the game 
+/// Represents the x and y position of a tile on the game,
+/// in row (y) and column (x) index (NOT px) starting at 0
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct BoardPosn {
     pub x: u32,
