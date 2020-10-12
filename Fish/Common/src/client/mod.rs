@@ -4,7 +4,7 @@
 //! but in the future this will also handle player input and receiving server
 //! updates in separate submodules within client.
 use crate::common::tile::{ TileId, Tile };
-use crate::common::gamestate::GameState;
+use crate::common::gamestate::SharedGameState;
 use crate::common::board::Board;
 use crate::common::boardposn::BoardPosn;
 
@@ -76,7 +76,7 @@ fn get_tile_position_px(board: &Board, tile_id: TileId, (tile_width, tile_height
 /// The window draws itself each frame and holds a copy of the gamestate. Resultingly,
 /// any changes made to the shared gamestate will automatically be updated in the window
 /// the next time it is redrawn.
-fn make_window(application: &gtk::Application, gamestate: GameState) {
+fn make_window(application: &gtk::Application, gamestate: SharedGameState) {
     let window = gtk::ApplicationWindow::new(application);
     let layout = Fixed::new();
 
@@ -95,13 +95,12 @@ fn make_window(application: &gtk::Application, gamestate: GameState) {
 
 /// Builds and shows the client side UI for the game.
 /// This takes care of window creation as well.
-pub fn show_ui(gamestate: GameState) {
+pub fn show_ui(gamestate: SharedGameState) {
     let application = gtk::Application::new(None, Default::default())
         .expect("Initialization failed...");
 
     application.connect_activate(move |app| {
-        let gamestate = gamestate.clone();
-        make_window(app, gamestate);
+        make_window(app, gamestate.clone());
     });
 
     application.run(&[]);

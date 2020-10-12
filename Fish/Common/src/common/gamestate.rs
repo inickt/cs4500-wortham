@@ -10,6 +10,7 @@ use crate::common::player::{ Player, PlayerId };
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::util;
 
+use std::clone::Clone;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -70,8 +71,9 @@ impl GameState {
     /// 1. Placement on an invalid position (either out of bounds or a hole)
     /// 2. Placement when the players' avatars are already placed
     /// 3. Placement of a penguin that doesn't belong to the current player
-    pub fn place_avatar_for_player(&mut self, player: PlayerId, penguin: PenguinId, position: BoardPosn) {
-
+    pub fn place_avatar_for_player(&mut self, player: PlayerId, penguin: PenguinId, tile: TileId) -> Option<()> {
+        let player = self.players.get_mut(&player)?; 
+        player.place_penguin(penguin, tile, &self.board)
     }
 
     /// Moves a placed avatar from one position to another on the board. 
@@ -83,8 +85,9 @@ impl GameState {
     /// 4. Placement on a tile that is not accessible within a straight line
     ///    of the current tile, with no holes in between.
     /// 5. Move a penguin that doesn't belong to the player
-    pub fn move_avatar_for_player(&mut self, player: PlayerId, penguin: PenguinId, position: BoardPosn) {
-
+    pub fn move_avatar_for_player(&mut self, player: PlayerId, penguin: PenguinId, destination: TileId) -> Option<()> {
+        let player = self.players.get_mut(&player)?;
+        player.move_penguin(penguin, destination, &self.board)
     }
 
     /// Retrieve a tile by its ID. Will return None if the id
