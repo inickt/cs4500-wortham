@@ -3,15 +3,17 @@ use crate::common::board::Board;
 use crate::common::tile::TileId;
 use crate::common::util::map_slice;
 
+use std::collections::HashSet;
 use std::sync::atomic::{ AtomicUsize, Ordering };
 
 /// Amount of players generated in the current instance of this program.
 /// Used for setting unique PlayerIds for each player.
 static TOTAL_PLAYER_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PlayerId(pub usize);
 
+#[derive(Debug)]
 pub struct Player {
     pub player_id: PlayerId,
     pub penguins: Vec<Penguin>,
@@ -31,11 +33,11 @@ impl Player {
 
         // Penguin must not yet be on a tile to be initially placed.
         // move_penguin should be used to move an already-placed penguin.
-        if penguin.tile != None {
+        if penguin.tile_id != None {
             None
         } else {
             let to_tile = board.tiles.get(&tile_id)?;
-            penguin.tile = Some(tile_id);
+            penguin.tile_id = Some(tile_id);
             Some(())
         }
     }
@@ -43,17 +45,22 @@ impl Player {
     /// Moves one of this players' penguins to a new location on the given board.
     /// Returns Some(()) if the move succeeded, None if it failed. This approach is used over
     /// booleans to reduce code nesting when dealing with Option types, using the "?" operator.
-    pub fn move_penguin(&mut self, penguin_id: PenguinId, to_tile_id: TileId, board: &Board) -> Option<()> {
+    pub fn move_penguin(&mut self, penguin_id: PenguinId, to_tile_id: TileId, board: &Board, occupied_tiles: &HashSet<TileId>) -> Option<()> {
         let penguin = self.find_penguin_mut(penguin_id)?;
-        let from_tile = board.tiles.get(&penguin.tile?)?;
+        let from_tile = board.tiles.get(&penguin.tile_id?)?;
         let to_tile = board.tiles.get(&to_tile_id)?;
 
-        if from_tile.can_reach(board, to_tile) {
-            penguin.tile = Some(to_tile_id);
+        if from_tile.can_reach(board, to_tile, occupied_tiles) {
+            penguin.tile_id = Some(to_tile_id);
             Some(())
         } else {
             None
         }
+    }
+
+    /// Returns true if any of this player's penguins have any valid moves to make.
+    pub fn can_move_a_penguin(&self, board: &Board, occupied_tiles: &HashSet<TileId>) -> bool {
+        self.penguins.iter().any(|penguin| penguin.can_move(board, occupied_tiles))
     }
 
     fn find_penguin_mut(&mut self, penguin_id: PenguinId) -> Option<&mut Penguin> {
@@ -102,23 +109,23 @@ fn test_move_penguin() {
     let penguin_ids = map_slice(&penguins, |penguin| penguin.penguin_id);
     let mut player = Player::new(penguins);
 
-    // Reachable tiles from 0 are [0, 1, 5, 3, 6]
+    // Reachable tiles from 0 are [0, 2, 1, 5]
     let tile_0 = TileId(0);
     let reachable_tile = TileId(5);
-    let unreachable_tile = TileId(2);
+    let unreachable_tile = TileId(3);
 
     // Move failed: penguin not yet placed
-    assert_eq!(player.move_penguin(penguin_ids[0], tile_0, &board), None);
+    assert_eq!(player.move_penguin(penguin_ids[0], tile_0, &board, &HashSet::new()), None);
 
     player.place_penguin(penguin_ids[0], tile_0, &board);
 
     // Move failed: tile not reachable from tile 0
-    assert_eq!(player.move_penguin(penguin_ids[0], unreachable_tile, &board), None);
+    assert_eq!(player.move_penguin(penguin_ids[0], unreachable_tile, &board, &HashSet::new()), None);
 
     // success, penguin should now be on tile 5
-    assert_eq!(player.move_penguin(penguin_ids[0], reachable_tile, &board), Some(()));
+    assert_eq!(player.move_penguin(penguin_ids[0], reachable_tile, &board, &HashSet::new()), Some(()));
 
     // Finally, assert that the position of the penguin actually changed
-    let penguin_pos = player.find_penguin_mut(penguin_ids[0]).and_then(|penguin| penguin.tile);
+    let penguin_pos = player.find_penguin_mut(penguin_ids[0]).and_then(|penguin| penguin.tile_id);
     assert_eq!(penguin_pos, Some(reachable_tile));
 }

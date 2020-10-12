@@ -10,7 +10,7 @@ use crate::common::player::{ Player, PlayerId };
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::util;
 
-use std::clone::Clone;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -48,17 +48,19 @@ impl GameState {
         // Each player receives 6 - N penguins, where N is the number of players
         let penguins_per_player = 6 - player_count; 
 
-        let players = util::make_n(player_count, |_| {
+        let players: HashMap<_, _> = util::make_n(player_count, |_| {
             let penguins = util::make_n(penguins_per_player, |_| Penguin::new());
             let player = Player::new(penguins);
             (player.player_id, player)
         });
 
+        let turn_order = players.keys().copied().collect(); // TODO sort by age 
+
         Rc::new(RefCell::new(GameState {
             game_id: GameId(id),
             board,
             players,
-            turn_order: util::make_n(player_count, PlayerId),
+            turn_order,
             current_turn: PlayerId(0),
             spectator_count: 0,
             winning_players: None,
@@ -86,8 +88,9 @@ impl GameState {
     ///    of the current tile, with no holes in between.
     /// 5. Move a penguin that doesn't belong to the player
     pub fn move_avatar_for_player(&mut self, player: PlayerId, penguin: PenguinId, destination: TileId) -> Option<()> {
+        let occupied = &self.get_occupied_tiles();
         let player = self.players.get_mut(&player)?;
-        player.move_penguin(penguin, destination, &self.board)
+        player.move_penguin(penguin, destination, &self.board, occupied)
     }
 
     /// Retrieve a tile by its ID. Will return None if the id
@@ -96,4 +99,73 @@ impl GameState {
     pub fn get_tile(&self, tile_id: TileId) -> Option<&Tile> {
         self.board.tiles.get(&tile_id)
     }
+
+    /// Returns true if any player has a penguin they can move,
+    /// false if not (the game is over)
+    pub fn can_any_player_move_penguin(&self) -> bool {
+        self.players.iter().any(|(_, player)| player.can_move_a_penguin(&self.board, &self.get_occupied_tiles()))
+    }
+
+    pub fn get_occupied_tiles(&self) -> HashSet<TileId> {
+        self.players.iter()
+            .flat_map(|(_, player)| player.penguins.iter().filter_map(|penguin| penguin.tile_id))
+            .collect()
+    }
+}
+
+#[test]
+fn test_new() {
+    let board = Board::with_no_holes(3, 3, 3);
+    let gamestate = GameState::new(1, board, 4); // create game with 4 players
+    let gamestate = gamestate.borrow();
+
+    assert_eq!(gamestate.players.len(), 4);
+    // should have 6-n penguins per player
+    assert!(gamestate.players.iter().all(|(_, player)| player.penguins.len() == 2));
+
+    // does turn_order contain each of the players' ids exactly once?
+    assert_eq!(gamestate.turn_order.len(), gamestate.players.len());
+    assert!(gamestate.players.iter().all(|(id, _)| gamestate.turn_order.contains(id)), "{:?},\nturns={:?}", gamestate.players, gamestate.turn_order);
+    assert_eq!(gamestate.winning_players, None); // no winners yet
+}
+
+#[test]
+fn test_can_any_player_move_penguin() {
+    // Can no players move when there's a penguin on the board, but holes blocking it in all directions?
+    let holes = util::map_slice(&[(1, 1), (1, 0), (0, 1)], |pos| BoardPosn::from(*pos));
+    let board_with_holes = Board::with_holes(2, 2, holes, 1);
+    let gamestate_unmovable = GameState::new(1, board_with_holes, 4);
+    let mut gamestate = gamestate_unmovable.borrow_mut();
+    let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
+    let penguin_id = player.penguins[0].penguin_id;
+    assert!(!gamestate.can_any_player_move_penguin());
+    gamestate.place_avatar_for_player(player_id, penguin_id, TileId(0));
+    assert!(!gamestate.can_any_player_move_penguin());
+
+
+    // Can a player move when they have a penguin on the board with no holes blocking it?
+    let board = Board::with_no_holes(3, 3, 3);
+    let gamestate = GameState::new(1, board, 4);
+    let mut gamestate = gamestate.borrow_mut();
+    let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
+    let penguin_id = player.penguins[0].penguin_id;
+    assert!(!gamestate.can_any_player_move_penguin());
+    gamestate.place_avatar_for_player(player_id, penguin_id, TileId(0));
+    assert!(gamestate.can_any_player_move_penguin());
+
+    // Can no players move when all penguins are blocked by holes or other penguins?
+    // 0(hole)      2(penguin)
+    //    1(penguin)       3(hole)
+    let holes = util::map_slice(&[(1, 1), (0, 0)], |pos| BoardPosn::from(*pos));
+    let board_with_holes = Board::with_holes(2, 2, holes, 1);
+    let gamestate_unmovable = GameState::new(1, board_with_holes, 4);
+    let mut gamestate = gamestate_unmovable.borrow_mut();
+    let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
+    let penguin_id = player.penguins[0].penguin_id;
+    let penguin_id_2 = player.penguins[1].penguin_id;
+    assert!(!gamestate.can_any_player_move_penguin());
+    gamestate.place_avatar_for_player(player_id, penguin_id, TileId(1));
+    assert!(gamestate.can_any_player_move_penguin()); // no penguin at 2, so can move
+    gamestate.place_avatar_for_player(player_id, penguin_id_2, TileId(2));
+    assert!(!gamestate.can_any_player_move_penguin()); // penguin at 2, so cannot move
 }

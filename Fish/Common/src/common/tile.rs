@@ -6,6 +6,7 @@
 //! and southwest. The tiles also have unique IDs and counts
 //! of the amount of fish on them.
 
+use std::collections::HashSet;
 use std::hash::{ Hash, Hasher };
 use std::fmt::Debug;
 use crate::common::direction::Direction;
@@ -111,13 +112,13 @@ impl Tile {
 
     /// Return a Vec of all tiles that a reachable via a straight line from the
     /// given tile. The given tile is considered reachable from itself as well.
-    pub fn all_reachable_tiles<'b>(&'b self, board: &'b Board) -> Vec<&'b Tile> {
+    pub fn all_reachable_tiles<'b>(&'b self, board: &'b Board, occupied_tiles: &HashSet<TileId>) -> Vec<&'b Tile> {
         Direction::iter()
             // filter out directions without neighbors. For directions with neighbors,
             // return all neighbors in that direction.
             .filter_map(|direction| {
                 match self.get_neighbor(board, direction) {
-                    Some(neighbor) => Some(neighbor.all_reachable_tiles_in_direction(board, direction)),
+                    Some(neighbor) => Some(neighbor.all_reachable_tiles_in_direction(board, direction, occupied_tiles)),
                     None => None
                 }
             })
@@ -130,19 +131,21 @@ impl Tile {
 
     /// Helper function for all_reachable_tiles.
     /// Returns a Vec of all tiles reachable from a given direction, including self.
-    fn all_reachable_tiles_in_direction<'b>(&'b self, board: &'b Board, direction: Direction) -> Vec<&'b Tile> {
-        if let Some(tile) = self.get_neighbor(board, direction) {
-            let mut reachable_tiles = tile.all_reachable_tiles_in_direction(board, direction);
-            reachable_tiles.push(self);
-            reachable_tiles
-        } else {
-            vec![self]
+    fn all_reachable_tiles_in_direction<'b>(&'b self, board: &'b Board, direction: Direction, occupied_tiles: &HashSet<TileId>) -> Vec<&'b Tile> {
+        match self.get_neighbor(board, direction) {
+            Some(tile) if !occupied_tiles.contains(&tile.tile_id) => {
+                let mut reachable_tiles = tile.all_reachable_tiles_in_direction(board, direction, occupied_tiles);
+                reachable_tiles.push(self);
+                reachable_tiles
+            },
+            None if !occupied_tiles.contains(&self.tile_id) => vec![self],
+            _ => vec![], // current tile is occupied and therefore cannot be reached
         }
     }
 
     /// Returns true if endpoint can be reached in a straight line from this Tile.
-    pub fn can_reach(&self, board: &Board, endpoint: &Tile) -> bool {
-        self.all_reachable_tiles(board).contains(&endpoint)
+    pub fn can_reach(&self, board: &Board, endpoint: &Tile, occupied_tiles: &HashSet<TileId>) -> bool {
+        self.all_reachable_tiles(board, occupied_tiles).contains(&endpoint)
     }
 
     /// Sets neighbors' references of this Tile to None, effectively removing it from the Tile set.
@@ -226,11 +229,11 @@ fn test_get_neighbor() {
 fn test_all_reachable_tiles_in_direction() {
     let b = Board::with_no_holes(3, 4, 4);
     let tile_5 = b.tiles.get(&TileId(5)).unwrap();
-    assert_eq!(tile_5.all_reachable_tiles_in_direction(&b, Direction::North), vec![
+    assert_eq!(tile_5.all_reachable_tiles_in_direction(&b, Direction::North, &HashSet::new()), vec![
         &b.tiles[&TileId(3)],
         &b.tiles[&TileId(5)]
     ]);
-    assert_eq!(tile_5.all_reachable_tiles_in_direction(&b, Direction::Northeast), vec![
+    assert_eq!(tile_5.all_reachable_tiles_in_direction(&b, Direction::Northeast, &HashSet::new()), vec![
         &b.tiles[&TileId(6)],
         &b.tiles[&TileId(4)],
         &b.tiles[&TileId(5)]
@@ -254,5 +257,5 @@ fn test_all_reachable_tiles() {
         &b.tiles[&TileId(1)],
         &b.tiles[&TileId(3)],
     ];
-    assert_eq!(tile_5.all_reachable_tiles(&b), expected_reachable);
+    assert_eq!(tile_5.all_reachable_tiles(&b, &HashSet::new()), expected_reachable);
 }
