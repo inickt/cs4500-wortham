@@ -9,6 +9,7 @@ use crate::common::player::PlayerColor;
 use crate::common::board::Board;
 use crate::common::boardposn::BoardPosn;
 
+use gdk_pixbuf::InterpType;
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk::{ Image, Fixed };
@@ -17,9 +18,9 @@ const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";
 
 const BLUE_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
-const GREEN_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
-const PINK_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
-const PURPLE_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
+const GREEN_PENGUIN_FILENAME: &str = "assets/penguin-green.png";
+const PINK_PENGUIN_FILENAME: &str = "assets/penguin-pink.png";
+const PURPLE_PENGUIN_FILENAME: &str = "assets/penguin-purple.png";
 
 const WINDOW_WIDTH: i32 = 1600;
 const WINDOW_HEIGHT: i32 = 900;
@@ -37,7 +38,7 @@ fn make_fish_image(fish_count: u8) -> Image {
 }
 
 /// Creates a single gtk::Image containing a penguin of the given color
-fn get_penguin_image(color: PlayerColor) -> Image {
+fn get_penguin_image(color: PlayerColor, width: i32, height: i32) -> Image {
     let filename = match color {
         PlayerColor::Blue => BLUE_PENGUIN_FILENAME,
         PlayerColor::Green => GREEN_PENGUIN_FILENAME,
@@ -45,7 +46,18 @@ fn get_penguin_image(color: PlayerColor) -> Image {
         PlayerColor::Purple => PURPLE_PENGUIN_FILENAME,
     };
 
-    Image::new_from_file(filename)
+    let pixbuf = Image::new_from_file(filename).get_pixbuf().unwrap();
+    let scaled = pixbuf.scale_simple(width, height, InterpType::Hyper);
+    Image::new_from_pixbuf(scaled.as_ref())
+}
+
+/// Adds the given Image to the layout, centering the image on the hexagonal tile.
+fn add_image_centered_on_tile(layout: &Fixed, image: &Image, hexagon_size: (i32, i32)) {
+    let image_size = get_image_size(image);
+    layout.add(image);
+    layout.move_(image,
+        hexagon_size.0 / 2 - image_size.0 / 2,
+        hexagon_size.1 / 2 - image_size.1 / 2);
 }
 
 /// Generates a GTK drawing of a specific Tile
@@ -59,18 +71,15 @@ fn make_tile_layout(tile: &Tile, penguin_color: Option<PlayerColor>) -> (Fixed, 
     let fish_count = tile.get_fish_count();
     if fish_count > 0 {
         let fish = make_fish_image(fish_count);
-        let fish_size = get_image_size(&fish);
-        layout.add(&fish);
-
-        // Center the fish on the hexagon
-        layout.move_(&fish,
-            hexagon_size.0 / 2 - fish_size.0 / 2,
-            hexagon_size.1 / 2 - fish_size.1 / 2);
+        add_image_centered_on_tile(&layout, &fish, hexagon_size);
     }
 
     if let Some(color) = penguin_color {
-        let penguin = get_penguin_image(color);
-        layout.add(&penguin);
+        // Scale the large penguin image down to (1/4 of the tile width, 1/2 of the tile height)
+        // This size is rather arbitrary, it was just picked since it looks decent and is small
+        // enough to show the fish underneath the penguin.
+        let penguin = get_penguin_image(color, hexagon_size.0 / 4, hexagon_size.1 / 2);
+        add_image_centered_on_tile(&layout, &penguin, hexagon_size);
     }
 
     (layout, hexagon_size)

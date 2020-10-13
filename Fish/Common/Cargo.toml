@@ -11,6 +11,7 @@ gtk = "0.8.0"
 gio = "0.8.0"
 cairo-rs = "0.8.0"
 gdk = "0.12.0"
+gdk-pixbuf = "0.8.0"
 
 # These two profiles optimize compilation for size.
 # They are necessary due to the limited amount of
