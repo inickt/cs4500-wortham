@@ -13,16 +13,38 @@ static TOTAL_PLAYER_COUNT: AtomicUsize = AtomicUsize::new(0);
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PlayerId(pub usize);
 
+#[derive(Copy, Clone, Debug)]
+pub enum PlayerColor {
+    Blue,
+    Green,
+    Pink,
+    Purple
+}
+
+impl PlayerColor {
+    fn from_id(id: PlayerId) -> PlayerColor {
+        match id.0 % 4 {
+            0 => PlayerColor::Blue,
+            1 => PlayerColor::Green,
+            2 => PlayerColor::Pink,
+            3 => PlayerColor::Purple,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Player {
     pub player_id: PlayerId,
     pub penguins: Vec<Penguin>,
+    pub color: PlayerColor,
 }
 
 impl Player {
     pub fn new(penguins: Vec<Penguin>) -> Player {
         let player_id = PlayerId(TOTAL_PLAYER_COUNT.fetch_add(1, Ordering::SeqCst));
-        Player { player_id, penguins }
+        let color = PlayerColor::from_id(player_id); // since IDs will be sequential, colors will be as well
+        Player { player_id, penguins, color }
     }
 
     /// Places one of this players' penguins to a new location on the given board.

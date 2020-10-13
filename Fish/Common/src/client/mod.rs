@@ -5,6 +5,7 @@
 //! updates in separate submodules within client.
 use crate::common::tile::{ TileId, Tile };
 use crate::common::gamestate::SharedGameState;
+use crate::common::player::PlayerColor;
 use crate::common::board::Board;
 use crate::common::boardposn::BoardPosn;
 
@@ -14,6 +15,11 @@ use gtk::{ Image, Fixed };
 
 const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";
+
+const BLUE_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
+const GREEN_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
+const PINK_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
+const PURPLE_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
 
 const WINDOW_WIDTH: i32 = 1600;
 const WINDOW_HEIGHT: i32 = 900;
@@ -30,9 +36,21 @@ fn make_fish_image(fish_count: u8) -> Image {
     Image::new_from_file(filename)
 }
 
+/// Creates a single gtk::Image containing a penguin of the given color
+fn get_penguin_image(color: PlayerColor) -> Image {
+    let filename = match color {
+        PlayerColor::Blue => BLUE_PENGUIN_FILENAME,
+        PlayerColor::Green => GREEN_PENGUIN_FILENAME,
+        PlayerColor::Pink => PINK_PENGUIN_FILENAME,
+        PlayerColor::Purple => PURPLE_PENGUIN_FILENAME,
+    };
+
+    Image::new_from_file(filename)
+}
+
 /// Generates a GTK drawing of a specific Tile
 /// Returns the drawing and a tuple of (width, height) in px of the tile
-fn make_tile_layout(tile: &Tile) -> (Fixed, (i32, i32)) {
+fn make_tile_layout(tile: &Tile, penguin_color: Option<PlayerColor>) -> (Fixed, (i32, i32)) {
     let layout = Fixed::new();
     let hexagon = Image::new_from_file(HEXAGON_FILENAME);
     let hexagon_size = get_image_size(&hexagon);
@@ -48,6 +66,11 @@ fn make_tile_layout(tile: &Tile) -> (Fixed, (i32, i32)) {
         layout.move_(&fish,
             hexagon_size.0 / 2 - fish_size.0 / 2,
             hexagon_size.1 / 2 - fish_size.1 / 2);
+    }
+
+    if let Some(color) = penguin_color {
+        let penguin = get_penguin_image(color);
+        layout.add(&penguin);
     }
 
     (layout, hexagon_size)
@@ -82,7 +105,8 @@ fn make_window(application: &gtk::Application, gamestate: SharedGameState) {
 
     let gamestate_ref = gamestate.borrow();
     for (tile_id, tile) in gamestate_ref.board.tiles.iter() {
-        let (tile_layout, tile_layout_size) = make_tile_layout(tile);
+        let penguin_color_on_tile = gamestate_ref.get_color_on_tile(*tile_id);
+        let (tile_layout, tile_layout_size) = make_tile_layout(tile, penguin_color_on_tile);
         layout.add(&tile_layout);
         let (new_x, new_y) = get_tile_position_px(&gamestate_ref.board, *tile_id, tile_layout_size);
         layout.move_(&tile_layout, new_x, new_y); // moves to absolute x/y pos

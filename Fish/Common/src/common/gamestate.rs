@@ -6,7 +6,7 @@
 use crate::common::board::Board;
 use crate::common::boardposn::BoardPosn;
 use crate::common::tile::{ TileId, Tile };
-use crate::common::player::{ Player, PlayerId };
+use crate::common::player::{ Player, PlayerId, PlayerColor };
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::util;
 
@@ -100,12 +100,27 @@ impl GameState {
         self.board.tiles.get(&tile_id)
     }
 
+    /// Gets the color of the player whose penguin is on a certain tile
+    /// Returns None if there is no penguin on that tile
+    pub fn get_color_on_tile(&self, tile_id: TileId) -> Option<PlayerColor> {
+        self.players.iter()
+            .find_map(|(_, player)| {
+                let is_penguin_on_tile = player.penguins.iter().any(|penguin| penguin.tile_id == Some(tile_id));
+                if is_penguin_on_tile {
+                    Some(player.color)
+                } else {
+                    None
+                }
+            })
+    }
+
     /// Returns true if any player has a penguin they can move,
     /// false if not (the game is over)
     pub fn can_any_player_move_penguin(&self) -> bool {
         self.players.iter().any(|(_, player)| player.can_move_a_penguin(&self.board, &self.get_occupied_tiles()))
     }
 
+    /// Returns the set of tiles on this gamestate's board which have a penguin on them
     pub fn get_occupied_tiles(&self) -> HashSet<TileId> {
         self.players.iter()
             .flat_map(|(_, player)| player.penguins.iter().filter_map(|penguin| penguin.tile_id))
