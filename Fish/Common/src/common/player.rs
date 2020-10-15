@@ -86,7 +86,7 @@ impl Player {
         self.penguins.iter().any(|penguin| penguin.can_move(board, occupied_tiles))
     }
 
-    fn find_penguin_mut(&mut self, penguin_id: PenguinId) -> Option<&mut Penguin> {
+    pub fn find_penguin_mut(&mut self, penguin_id: PenguinId) -> Option<&mut Penguin> {
         self.penguins.iter_mut().find(|p| penguin_id == p.penguin_id)
     }
 }
