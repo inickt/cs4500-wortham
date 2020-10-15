@@ -110,6 +110,8 @@ fn get_tile_position_px(board: &Board, tile_id: TileId, (tile_width, tile_height
 /// the next time it is redrawn.
 fn make_window(application: &gtk::Application, gamestate: SharedGameState) {
     let window = gtk::ApplicationWindow::new(application);
+    window.override_color(gtk::StateFlags::NORMAL, Some(&gdk::RGBA::blue()));
+
     let layout = Fixed::new();
 
     let gamestate_ref = gamestate.borrow();
