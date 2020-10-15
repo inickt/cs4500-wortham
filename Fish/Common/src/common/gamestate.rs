@@ -4,6 +4,7 @@
 //! shared mutable pointer which in the client is shared between
 //! the communication layer (TBD) and the ui layer.
 use crate::common::board::Board;
+use crate::common::boardposn::BoardPosn;
 use crate::common::tile::{ TileId, Tile };
 use crate::common::player::{ Player, PlayerId, PlayerColor };
 use crate::common::penguin::{ Penguin, PenguinId };
@@ -17,6 +18,7 @@ use std::collections::HashMap;
 const MIN_PLAYERS_PER_GAME: usize = 2;
 const MAX_PLAYERS_PER_GAME: usize = 4;
 
+#[derive(Debug)]
 pub struct GameId(usize);
 
 // Rc<RefCell<T>> gives a copiable, mutable reference to its T
@@ -27,6 +29,7 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// and sent to each client to deserialize to receive the updated game
 /// state each turn. The SharedGameState is rendering-agnostic, so each
 /// client is free to render the SharedGameState however it wishes.
+#[derive(Debug)]
 pub struct GameState {
     pub game_id: GameId,
     pub board: Board,
@@ -116,7 +119,7 @@ impl GameState {
     /// Returns true if any player has a penguin they can move,
     /// false if not (the game is over)
     pub fn can_any_player_move_penguin(&self) -> bool {
-        self.players.iter().any(|(_, player)| player.can_move_a_penguin(&self.board, &self.get_occupied_tiles()))
+        self.players.iter().any(|(_, player)| dbg!(player.can_move_a_penguin(&self.board, &self.get_occupied_tiles())))
     }
 
     /// Returns the set of tiles on this gamestate's board which have a penguin on them
@@ -179,7 +182,7 @@ fn test_can_any_player_move_penguin() {
     let penguin_id_2 = player.penguins[1].penguin_id;
     assert!(!gamestate.can_any_player_move_penguin());
     gamestate.place_avatar_for_player(player_id, penguin_id, TileId(1));
-    assert!(gamestate.can_any_player_move_penguin()); // no penguin at 2, so can move
+    assert!(&gamestate.can_any_player_move_penguin()); // no penguin at 2, so can move
     gamestate.place_avatar_for_player(player_id, penguin_id_2, TileId(2));
     assert!(!gamestate.can_any_player_move_penguin()); // penguin at 2, so cannot move
 }

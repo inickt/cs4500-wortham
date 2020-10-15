@@ -1,6 +1,7 @@
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::board::Board;
 use crate::common::tile::TileId;
+use crate::common::util::map_slice;
 
 use std::collections::HashSet;
 use std::sync::atomic::{ AtomicUsize, Ordering };

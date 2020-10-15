@@ -18,7 +18,8 @@ pub struct PenguinId(usize);
 #[derive(Debug)]
 pub struct Penguin {
     pub penguin_id: PenguinId,
-    // INVARIANT: penguin's TileId corresponds to a hole
+    /// INVARIANT: tile_id will always be a valid tile in this Tile's Board
+    /// i.e. never a hole
     pub tile_id: Option<TileId>,
 }
 
@@ -40,10 +41,9 @@ impl Penguin {
     pub fn can_move(&self, board: &Board, occupied_tiles: &HashSet<TileId>) -> bool {
         match self.tile_id {
             Some(tile_id) => {
-                // panics if the penguin's tile is a hole
+                // panics if the penguin's tile_id is a hole
                 let tile = board.tiles.get(&tile_id).unwrap();
-                // check if len > 1 becuase current tile will always be reachable
-                tile.all_reachable_tiles(board, occupied_tiles).len() > 1
+                tile.all_reachable_tiles(board, occupied_tiles).len() > 0
             },
             None => false,
         }
