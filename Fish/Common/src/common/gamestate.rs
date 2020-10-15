@@ -148,7 +148,7 @@ fn test_new() {
 #[test]
 fn test_can_any_player_move_penguin() {
     // Can no players move when there's a penguin on the board, but holes blocking it in all directions?
-    let holes = util::map_slice(&[(1, 1), (1, 0), (0, 1)], |pos| BoardPosn::from(*pos));
+    let holes = util::map_slice(&[(1, 1), (1, 0), (0, 1)], |pos| super::boardposn::BoardPosn::from(*pos));
     let board_with_holes = Board::with_holes(2, 2, holes, 1);
     let gamestate_unmovable = GameState::new(1, board_with_holes, 4);
     let mut gamestate = gamestate_unmovable.borrow_mut();
@@ -172,7 +172,7 @@ fn test_can_any_player_move_penguin() {
     // Can no players move when all penguins are blocked by holes or other penguins?
     // 0(hole)      2(penguin)
     //    1(penguin)       3(hole)
-    let holes = util::map_slice(&[(1, 1), (0, 0)], |pos| BoardPosn::from(*pos));
+    let holes = util::map_slice(&[(1, 1), (0, 0)], |pos| super::boardposn::BoardPosn::from(*pos));
     let board_with_holes = Board::with_holes(2, 2, holes, 1);
     let gamestate_unmovable = GameState::new(1, board_with_holes, 4);
     let mut gamestate = gamestate_unmovable.borrow_mut();
