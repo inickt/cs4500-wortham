@@ -28,7 +28,7 @@ impl JSONBoardAndPosn {
 fn board_from_json(board_and_posn: JSONBoardAndPosn) -> Board {
     let board = board_and_posn.board;
     let rows = board.len();
-    let columns = board.get(0).map_or(0, |columns| columns.len());
+    let columns = board.iter().map(|row| row.len()).max().unwrap_or(0);
     let mut holes = Vec::new();
 
     for (row_i, row) in board.iter().enumerate() {
@@ -36,6 +36,12 @@ fn board_from_json(board_and_posn: JSONBoardAndPosn) -> Board {
             if num_fish == 0 {
                 holes.push(BoardPosn::from((col_i as u32, row_i as u32)));
             }
+        }
+
+        // Boards may not contain an equal number of columns in each row,
+        // push the remains of any smaller rows as holes
+        for col_i in row.len() .. columns {
+            holes.push(BoardPosn::from((col_i as u32, row_i as u32)));
         }
     }
 
@@ -81,4 +87,36 @@ fn test_board_from_json() {
 
     assert_eq!(expected_tile, output_tile);
     assert_eq!(output_tile.all_reachable_tiles(&output, &HashSet::new()).len(), 3);
+}
+
+#[test]
+fn test_board_from_json_uneven_rows() {
+    let input = JSONBoardAndPosn {
+        position: [1, 2],
+        board: vec![
+            vec![1, 2, 3, 3, 4],
+            vec!  [4, 0, 5, 2],
+            vec![1,  1, 0],
+        ]
+    };
+
+    let position = input.position;
+
+    let expected = Board::with_holes(3, 5, vec![
+        (1,1).into(),
+        (2,2).into(),
+        (4,1).into(),
+        (3,2).into(),
+        (4,2).into(),
+    ], 0);
+    let output = board_from_json(input);
+
+    assert_eq!(output.tiles.len(), 10); // 12 tiles - 2 holes
+    assert_eq!(expected.tiles, output.tiles);
+
+    let expected_tile = expected.get_tile(position[1] as u32, position[0] as u32).unwrap();
+    let output_tile = output.get_tile(position[1] as u32, position[0] as u32).unwrap();
+
+    assert_eq!(expected_tile, output_tile);
+    assert_eq!(output_tile.all_reachable_tiles(&output, &HashSet::new()).len(), 2);
 }
