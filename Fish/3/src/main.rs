@@ -11,18 +11,20 @@ use fish::common::boardposn::BoardPosn;
 #[derive(Deserialize)]
 struct JSONBoardAndPosn {
     position: [u32; 2],
-    board: Vec<Vec<u32>>,
+    board: Vec<Vec<u32>>, // vector of rows
 }
 
 impl JSONBoardAndPosn {
-    // Deserializes a JSON string into a JSONBoardAndPosn
-    // Assumes the reader will contain only valid JSON
+    /// Deserializes a JSON string into a JSONBoardAndPosn
+    /// Assumes the reader will contain only valid JSON
     pub fn from_reader<R: std::io::Read>(reader: R) -> JSONBoardAndPosn {
         let mut de = Deserializer::from_reader(reader);
         JSONBoardAndPosn::deserialize(&mut de).ok().unwrap()
     }
 }
 
+/// Converts a JSON representation of a board to
+/// the board module's Board representation.
 fn board_from_json(board_and_posn: JSONBoardAndPosn) -> Board {
     let board = board_and_posn.board;
     let rows = board.len();
@@ -53,4 +55,30 @@ fn main() {
 
     // print the number of reachable tiles with an empty set of 
     println!("{}", starting_tile.all_reachable_tiles(&board, &HashSet::new()).len())
+}
+
+#[test]
+fn test_board_from_json() {
+    let input = JSONBoardAndPosn {
+        position: [0, 2],
+        board: vec![
+            vec![2, 3, 1],
+            vec![0, 2, 3],
+            vec![1, 1, 0]
+        ]
+    };
+
+    let position = input.position;
+
+    let expected = Board::with_holes(3, 3, vec![(0,1).into(), (2,2).into()], 0);
+    let output = board_from_json(input);
+
+    assert_eq!(output.tiles.len(), 7); // 9 tiles - 2 holes
+    assert_eq!(expected.tiles, output.tiles);
+
+    let expected_tile = expected.get_tile(position[1] as u32, position[0] as u32).unwrap();
+    let output_tile = output.get_tile(position[1] as u32, position[0] as u32).unwrap();
+
+    assert_eq!(expected_tile, output_tile);
+    assert_eq!(output_tile.all_reachable_tiles(&output, &HashSet::new()).len(), 3);
 }
