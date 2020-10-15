@@ -1,7 +1,6 @@
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::board::Board;
 use crate::common::tile::TileId;
-use crate::common::util::map_slice;
 
 use std::collections::HashSet;
 use std::sync::atomic::{ AtomicUsize, Ordering };
@@ -58,7 +57,8 @@ impl Player {
         if penguin.tile_id != None {
             None
         } else {
-            let to_tile = board.tiles.get(&tile_id)?;
+            // Make sure the tile isn't a hole before setting the new tile_id
+            board.tiles.get(&tile_id)?;
             penguin.tile_id = Some(tile_id);
             Some(())
         }

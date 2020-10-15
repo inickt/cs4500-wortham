@@ -68,18 +68,18 @@ fn make_tile_layout(tile: &Tile, penguin_color: Option<PlayerColor>) -> (Fixed, 
     let hexagon_size = get_image_size(&hexagon);
     layout.add(&hexagon);
 
-    let fish_count = tile.get_fish_count();
-    if fish_count > 0 {
-        let fish = make_fish_image(fish_count);
-        add_image_centered_on_tile(&layout, &fish, hexagon_size);
-    }
-
     if let Some(color) = penguin_color {
         // Scale the large penguin image down to (1/4 of the tile width, 1/2 of the tile height)
         // This size is rather arbitrary, it was just picked since it looks decent and is small
         // enough to show the fish underneath the penguin.
         let penguin = get_penguin_image(color, hexagon_size.0 / 4, hexagon_size.1 / 2);
         add_image_centered_on_tile(&layout, &penguin, hexagon_size);
+    }
+
+    let fish_count = tile.get_fish_count();
+    if fish_count > 0 {
+        let fish = make_fish_image(fish_count);
+        add_image_centered_on_tile(&layout, &fish, hexagon_size);
     }
 
     (layout, hexagon_size)

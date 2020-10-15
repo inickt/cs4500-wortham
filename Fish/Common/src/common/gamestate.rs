@@ -4,7 +4,6 @@
 //! shared mutable pointer which in the client is shared between
 //! the communication layer (TBD) and the ui layer.
 use crate::common::board::Board;
-use crate::common::boardposn::BoardPosn;
 use crate::common::tile::{ TileId, Tile };
 use crate::common::player::{ Player, PlayerId, PlayerColor };
 use crate::common::penguin::{ Penguin, PenguinId };

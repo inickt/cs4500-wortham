@@ -111,7 +111,7 @@ impl Tile {
     } 
 
     /// Return a Vec of all tiles that a reachable via a straight line from the
-    /// given tile. The given tile is considered reachable from itself as well.
+    /// given tile. The starting tile is not considered reachable from itself.
     pub fn all_reachable_tiles<'b>(&'b self, board: &'b Board, occupied_tiles: &HashSet<TileId>) -> Vec<&'b Tile> {
         Direction::iter()
             // filter out directions without neighbors. For directions with neighbors,
@@ -123,7 +123,7 @@ impl Tile {
                 }
             })
             // Then collect all the tiles in each direction into a single Vec
-            .fold(vec![self], |mut all_tiles, mut tiles_in_direction| {
+            .fold(vec![], |mut all_tiles, mut tiles_in_direction| {
                 all_tiles.append(&mut tiles_in_direction);
                 all_tiles
             })
@@ -250,7 +250,6 @@ fn test_all_reachable_tiles() {
     let b = Board::with_no_holes(3, 4, 4);
     let tile_5 = b.tiles.get(&TileId(5)).unwrap();
     let expected_reachable = vec![
-        &b.tiles[&TileId(5)],
         &b.tiles[&TileId(6)],
         &b.tiles[&TileId(4)],
         &b.tiles[&TileId(0)],

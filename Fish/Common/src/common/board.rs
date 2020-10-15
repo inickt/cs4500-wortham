@@ -22,6 +22,7 @@ use std::collections::HashMap;
 /// are made and translated to/from board positions. It should be noted though
 /// that a tile's adjacency list is the preferred method for working on it within
 /// game rules validation code.
+#[derive(Debug)]
 pub struct Board {
     pub tiles: HashMap<TileId, Tile>,
     width: u32,
@@ -122,6 +123,13 @@ impl Board {
         let x = tile_id.0 as u32 / self.height;
         let y = tile_id.0 as u32 % self.height;
         BoardPosn { x, y }
+    }
+
+    pub fn get_tile(&self, tile_x: u32, tile_y: u32) -> Option<&Tile> {
+        let expected_tile_id = Board::compute_tile_id(self.width as i64,
+            self.height as i64, tile_x as i64, tile_y as i64).unwrap();
+
+        self.tiles.get(&expected_tile_id)
     }
 
     /// Removes a given Tile from the board if possible.
