@@ -4,7 +4,7 @@
 //! but in the future this will also handle player input and receiving server
 //! updates in separate submodules within client.
 use crate::common::tile::{ TileId, Tile };
-use crate::common::gamestate::SharedGameState;
+use crate::common::gamestate::{ GameState, SharedGameState };
 use crate::common::player::PlayerColor;
 use crate::common::board::Board;
 use crate::common::boardposn::BoardPosn;
@@ -22,8 +22,18 @@ const GREEN_PENGUIN_FILENAME: &str = "assets/penguin-green.png";
 const PINK_PENGUIN_FILENAME: &str = "assets/penguin-pink.png";
 const PURPLE_PENGUIN_FILENAME: &str = "assets/penguin-purple.png";
 
-const WINDOW_WIDTH: i32 = 1600;
-const WINDOW_HEIGHT: i32 = 900;
+/// Text to display above the current turn player image.
+const CURRENT_TURN_TEXT: &str = "Current Turn:";
+
+/// Width and height of the current window in pixels.
+const WINDOW_SIZE: (i32, i32) = (1600, 900);
+
+/// Size of the "current turn" player image in pixels
+const PLAYER_IMAGE_SIZE: (i32, i32) = (66, 100);
+
+/// How many pixels from the bottom-right of the screen the "current turn"
+/// player image is placed.
+const PLAYER_IMAGE_MARGIN: (i32, i32) = (PLAYER_IMAGE_SIZE.0 * 2, PLAYER_IMAGE_SIZE.1 * 2);
 
 /// Creates a single gtk::Image containing 1-5 fish
 /// This function will panic if given 0 fish.
@@ -104,6 +114,28 @@ fn get_tile_position_px(board: &Board, tile_id: TileId, (tile_width, tile_height
     (x, y)
 }
 
+/// Creates a widget layout containing a penguin icon with the color of the current
+/// player as well as a "current turn" text widget to indicate whose turn it is.
+fn make_current_turn_widget(gamestate: &GameState) -> gtk::Fixed {
+    let current_player = &gamestate.players[&gamestate.current_turn];
+    let player_image = get_penguin_image(current_player.color, PLAYER_IMAGE_SIZE.0, PLAYER_IMAGE_SIZE.1);
+
+    let layout = Fixed::new();
+    layout.add(&player_image);
+    layout.move_(&player_image,
+                 WINDOW_SIZE.0 - PLAYER_IMAGE_MARGIN.0,
+                 WINDOW_SIZE.1 - PLAYER_IMAGE_MARGIN.1);
+
+    let text = gtk::TextView::new();
+    let buffer = text.get_buffer().unwrap();
+    buffer.set_text(CURRENT_TURN_TEXT);
+    layout.add(&text);
+    layout.move_(&text,
+                 WINDOW_SIZE.0 - PLAYER_IMAGE_MARGIN.0,
+                 WINDOW_SIZE.1 - PLAYER_IMAGE_MARGIN.1);
+    layout
+}
+
 /// Creates and displays a window in a given application displaying the given gamestate.
 /// The window draws itself each frame and holds a copy of the gamestate. Resultingly,
 /// any changes made to the shared gamestate will automatically be updated in the window
@@ -112,6 +144,7 @@ fn make_window(application: &gtk::Application, gamestate: SharedGameState) {
     let window = gtk::ApplicationWindow::new(application);
     let layout = Fixed::new();
 
+    // Draw each board tile
     let gamestate_ref = gamestate.borrow();
     for (tile_id, tile) in gamestate_ref.board.tiles.iter() {
         let penguin_color_on_tile = gamestate_ref.get_color_on_tile(*tile_id);
@@ -121,7 +154,10 @@ fn make_window(application: &gtk::Application, gamestate: SharedGameState) {
         layout.move_(&tile_layout, new_x, new_y); // moves to absolute x/y pos
     }
 
-    window.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT);
+    // Add an icon and text representing whose turn it is to the bottom-left.
+    layout.add(&make_current_turn_widget(&gamestate_ref));
+
+    window.set_default_size(WINDOW_SIZE.0, WINDOW_SIZE.1);
     window.add(&layout);
     window.show_all();
 }
