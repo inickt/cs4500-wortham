@@ -1,6 +1,6 @@
 # Fish Game
 
-![Common/assets/board.png](Fish)
+![](Common/assets/board.png)
 
 ## Directories
 
