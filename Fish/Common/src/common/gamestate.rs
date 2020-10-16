@@ -2,11 +2,12 @@
 //! serialized by the server and sent to each client - informing
 //! them of any updates to the game. The GameState itself is a
 //! shared mutable pointer which in the client is shared between
-//! the communication layer (TBD) and the ui layer.
+//! the communication layer (TBD) and the ui layer. It represents
+//! the full state of the game at any given point in time.
 use crate::common::board::Board;
 use crate::common::tile::{ TileId, Tile };
 use crate::common::player::{ Player, PlayerId, PlayerColor };
-use crate::common::penguin::{ Penguin, PenguinId };
+use crate::common::penguin::PenguinId;
 use crate::common::util;
 
 use std::collections::HashSet;
@@ -17,10 +18,18 @@ use std::collections::HashMap;
 const MIN_PLAYERS_PER_GAME: usize = 2;
 const MAX_PLAYERS_PER_GAME: usize = 4;
 
+/// Each player receives 6 - player_count penguins to start the game
+const PENGUIN_FACTOR: usize = 6;
+
 #[derive(Debug)]
 pub struct GameId(usize);
 
-// Rc<RefCell<T>> gives a copiable, mutable reference to its T
+/// Rc<RefCell<T>> gives a copiable, mutable reference to its T
+///
+/// This SharedGameState is a copiable, mutable pointer to the GameState
+/// intended for use in the client since gtk requires ownership of the
+/// data passed to its callbacks. Using this, one can pass a copy to each
+/// callback and maintain a copy to overwrite with server updates as well.
 pub type SharedGameState = Rc<RefCell<GameState>>;
 
 /// The GameState contains the entirety of the current state
@@ -40,36 +49,38 @@ pub struct GameState {
 }
 
 impl GameState {
-    /// Creates a new gamestate containing a board with the given specifications.
+    /// Create a new SharedGameState with the given game id, board, and player_count.
+    /// This will panic if player_count is < MIN_PLAYERS_PER_GAME or > MAX_PLAYERS_PER_GAME.
     /// Notice that this function returns a SharedGameState, which is
     /// a necessary wrapper to allow multiple references to a given GameState.
-    pub fn new(id: usize, board: Board, player_count: usize) -> SharedGameState {
+    pub fn new(game_id: usize, board: Board, player_count: usize) -> SharedGameState {
         assert!(player_count >= MIN_PLAYERS_PER_GAME, "Fish must be played with at least {} players!", MIN_PLAYERS_PER_GAME);
         assert!(player_count <= MAX_PLAYERS_PER_GAME, "Fish only supports up to {} players!", MAX_PLAYERS_PER_GAME);
 
         // Each player receives 6 - N penguins, where N is the number of players
-        let penguins_per_player = 6 - player_count; 
+        let penguins_per_player = PENGUIN_FACTOR - player_count; 
 
         let players: HashMap<_, _> = util::make_n(player_count, |_| {
             let player = Player::new(penguins_per_player);
             (player.player_id, player)
         });
 
-        let turn_order = players.keys().copied().collect(); // TODO sort by age 
+        let turn_order: Vec<PlayerId> = players.keys().copied().collect(); // TODO sort by age 
+        let current_turn = turn_order[0];
 
         Rc::new(RefCell::new(GameState {
-            game_id: GameId(id),
+            game_id: GameId(game_id),
             board,
             players,
             turn_order,
-            current_turn: PlayerId(0),
+            current_turn,
             spectator_count: 0,
             winning_players: vec![],
         }))
     }
 
     /// Places an unplaced avatar on a position on the board. 
-    /// Returns true on success, false if the player makes an invalid placement.
+    /// Returns Some(()) on success, or None if the player makes an invalid placement.
     /// An invalid placement is one of:
     /// 1. Placement on an invalid position (either out of bounds or a hole)
     /// 2. Placement when the players' avatars are already placed
@@ -80,7 +91,7 @@ impl GameState {
     }
 
     /// Moves a placed avatar from one position to another on the board. 
-    /// Returns true on success, false if the player makes an invalid move.
+    /// Returns Some(()) on success, or None if the player makes an invalid move.
     /// An invalid placement is one of:
     /// 1. Move to an invalid position (either out of bounds or hole)
     /// 2. Move when the player has other unplaced avatars
@@ -104,19 +115,18 @@ impl GameState {
     /// Gets the color of the player whose penguin is on a certain tile
     /// Returns None if there is no penguin on that tile
     pub fn get_color_on_tile(&self, tile_id: TileId) -> Option<PlayerColor> {
-        self.players.iter()
-            .find_map(|(_, player)| {
-                let is_penguin_on_tile = player.penguins.iter().any(|penguin| penguin.tile_id == Some(tile_id));
-                if is_penguin_on_tile {
-                    Some(player.color)
-                } else {
-                    None
-                }
-            })
+        self.players.iter().find_map(|(_, player)| {
+            let is_penguin_on_tile = player.penguins.iter().any(|penguin| penguin.tile_id == Some(tile_id));
+            if is_penguin_on_tile {
+                Some(player.color)
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns true if any player has a penguin they can move,
-    /// false if not (the game is over)
+    /// false if not (and the game is thus over)
     pub fn can_any_player_move_penguin(&self) -> bool {
         self.players.iter().any(|(_, player)| player.can_move_a_penguin(&self.board, &self.get_occupied_tiles()))
     }
@@ -199,7 +209,7 @@ fn test_place_avatar() {
 
     let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
 
-    let unowned_penguin = Penguin::new();
+    let unowned_penguin = crate::common::penguin::Penguin::new();
     let penguin1 = player.penguins[0].penguin_id;
     let penguin2 = player.penguins[1].penguin_id;
 

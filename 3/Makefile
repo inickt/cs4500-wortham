@@ -1,2 +1,2 @@
 all:
-	cd Other && cargo build -j7 && cp target/debug/xboard .
+	cd Other && cargo build -j7 && cp target/debug/xboard ..

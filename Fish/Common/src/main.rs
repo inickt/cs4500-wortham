@@ -3,8 +3,6 @@ mod common;
 
 use common::gamestate::GameState;
 use common::board::Board;
-use common::util;
-use common::boardposn::BoardPosn;
 use common::tile::TileId;
 
 fn main() {
