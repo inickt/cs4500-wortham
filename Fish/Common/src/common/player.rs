@@ -1,7 +1,6 @@
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::board::Board;
 use crate::common::tile::TileId;
-use crate::common::util::map_slice;
 
 use std::collections::HashSet;
 use std::sync::atomic::{ AtomicUsize, Ordering };
@@ -100,7 +99,7 @@ fn test_place_penguin() {
     board.remove_tile(TileId(5));
 
     let penguins = vec![Penguin::new(), Penguin::new()];
-    let penguin_ids = map_slice(&penguins, |penguin| penguin.penguin_id);
+    let penguin_ids = super::util::map_slice(&penguins, |penguin| penguin.penguin_id);
     let mut player = Player::new(penguins);
 
     let unowned_penguin = Penguin::new();
@@ -129,7 +128,7 @@ fn test_move_penguin() {
     let board = Board::with_no_holes(3, 3, 3);
 
     let penguins = vec![Penguin::new(), Penguin::new()];
-    let penguin_ids = map_slice(&penguins, |penguin| penguin.penguin_id);
+    let penguin_ids = super::util::map_slice(&penguins, |penguin| penguin.penguin_id);
     let mut player = Player::new(penguins);
 
     // Reachable tiles from 0 are [0, 2, 1, 5]
