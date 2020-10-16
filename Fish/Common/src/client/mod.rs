@@ -12,7 +12,8 @@ use crate::common::boardposn::BoardPosn;
 use gdk_pixbuf::InterpType;
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::{ Image, Fixed };
+use gtk::{ StateFlags, Image, Fixed };
+use gdk::RGBA;
 
 const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";
@@ -143,6 +144,8 @@ fn make_current_turn_widget(gamestate: &GameState) -> gtk::Fixed {
 fn make_window(application: &gtk::Application, gamestate: SharedGameState) {
     let window = gtk::ApplicationWindow::new(application);
     let layout = Fixed::new();
+
+    window.override_background_color(StateFlags::NORMAL, Some(&RGBA::blue()));
 
     // Draw each board tile
     let gamestate_ref = gamestate.borrow();
