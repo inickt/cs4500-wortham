@@ -23,25 +23,26 @@ pub struct GameId(usize);
 // Rc<RefCell<T>> gives a copiable, mutable reference to its T
 pub type SharedGameState = Rc<RefCell<GameState>>;
 
-/// The SharedGameState contains the entirety of the current state
+/// The GameState contains the entirety of the current state
 /// of the game. It is meant to be serialized into json from the server
 /// and sent to each client to deserialize to receive the updated game
-/// state each turn. The SharedGameState is rendering-agnostic, so each
-/// client is free to render the SharedGameState however it wishes.
+/// state each turn. The GameState is rendering-agnostic, so each
+/// client is free to render the GameState however it wishes.
 #[derive(Debug)]
 pub struct GameState {
     pub game_id: GameId,
     pub board: Board,
     pub players: HashMap<PlayerId, Player>,
-    pub turn_order: Vec<PlayerId>,
+    pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game
     pub current_turn: PlayerId,
-    pub spectator_count: usize,
-    pub winning_players: Vec<PlayerId>,
+    pub spectator_count: usize, // simple count so that players can see their audience size
+    pub winning_players: Vec<PlayerId>, // will be empty until the game ends
 }
 
 impl GameState {
-    /// Convenience function for creating a new gamestate containing a
-    /// board with the given specifications.
+    /// Creates a new gamestate containing a board with the given specifications.
+    /// Notice that this function returns a SharedGameState, which is
+    /// a necessary wrapper to allow multiple references to a given GameState.
     pub fn new(id: usize, board: Board, player_count: usize) -> SharedGameState {
         assert!(player_count >= MIN_PLAYERS_PER_GAME, "Fish must be played with at least {} players!", MIN_PLAYERS_PER_GAME);
         assert!(player_count <= MAX_PLAYERS_PER_GAME, "Fish only supports up to {} players!", MAX_PLAYERS_PER_GAME);
@@ -50,8 +51,7 @@ impl GameState {
         let penguins_per_player = 6 - player_count; 
 
         let players: HashMap<_, _> = util::make_n(player_count, |_| {
-            let penguins = util::make_n(penguins_per_player, |_| Penguin::new());
-            let player = Player::new(penguins);
+            let player = Player::new(penguins_per_player);
             (player.player_id, player)
         });
 
@@ -118,7 +118,7 @@ impl GameState {
     /// Returns true if any player has a penguin they can move,
     /// false if not (the game is over)
     pub fn can_any_player_move_penguin(&self) -> bool {
-        self.players.iter().any(|(_, player)| dbg!(player.can_move_a_penguin(&self.board, &self.get_occupied_tiles())))
+        self.players.iter().any(|(_, player)| player.can_move_a_penguin(&self.board, &self.get_occupied_tiles()))
     }
 
     /// Returns the set of tiles on this gamestate's board which have a penguin on them

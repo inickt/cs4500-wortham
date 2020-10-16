@@ -1,7 +1,7 @@
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::board::Board;
 use crate::common::tile::TileId;
-use crate::common::util::map_slice;
+use crate::common::util;
 
 use std::collections::HashSet;
 use std::sync::atomic::{ AtomicUsize, Ordering };
@@ -13,7 +13,7 @@ static TOTAL_PLAYER_COUNT: AtomicUsize = AtomicUsize::new(0);
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PlayerId(pub usize);
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PlayerColor {
     Blue,
     Green,
@@ -41,8 +41,11 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(penguins: Vec<Penguin>) -> Player {
+    /// Creates a new player with the given amount of penguins. 
+    /// Initializes the player's PlayerId to be globally unique.
+    pub fn new(penguin_count: usize) -> Player {
         let player_id = PlayerId(TOTAL_PLAYER_COUNT.fetch_add(1, Ordering::SeqCst));
+        let penguins = util::make_n(penguin_count, |_| Penguin::new());
         let color = PlayerColor::from_id(player_id); // since IDs will be sequential, colors will be as well
         Player { player_id, penguins, color }
     }
@@ -86,8 +89,25 @@ impl Player {
         self.penguins.iter().any(|penguin| penguin.can_move(board, occupied_tiles))
     }
 
+    /// Retrieves a penguin by id. If the penguin does not belong to the
+    /// current player this will return None.
     pub fn find_penguin_mut(&mut self, penguin_id: PenguinId) -> Option<&mut Penguin> {
         self.penguins.iter_mut().find(|p| penguin_id == p.penguin_id)
+    }
+}
+
+#[test]
+fn test_new() {
+    // Make 4 players with 2 penguins each
+    let players: Vec<_> = util::make_n(4, |_| Player::new(2));
+
+    for (i, player) in players.iter().enumerate() {
+        assert_eq!(player.penguins.len(), 2);
+        for other_player in players[i+1..].iter() {
+            // make sure players created have unique IDs and colors
+            assert_ne!(player.player_id, other_player.player_id);
+            assert_ne!(player.color, other_player.color);
+        }
     }
 }
 
@@ -99,9 +119,8 @@ fn test_place_penguin() {
     let mut board = Board::with_no_holes(3, 3, 3);
     board.remove_tile(TileId(5));
 
-    let penguins = vec![Penguin::new(), Penguin::new()];
-    let penguin_ids = map_slice(&penguins, |penguin| penguin.penguin_id);
-    let mut player = Player::new(penguins);
+    let mut player = Player::new(2);
+    let penguin_ids = util::map_slice(&player.penguins, |penguin| penguin.penguin_id);
 
     let unowned_penguin = Penguin::new();
 
@@ -128,9 +147,8 @@ fn test_move_penguin() {
     // 2   5   8
     let board = Board::with_no_holes(3, 3, 3);
 
-    let penguins = vec![Penguin::new(), Penguin::new()];
-    let penguin_ids = map_slice(&penguins, |penguin| penguin.penguin_id);
-    let mut player = Player::new(penguins);
+    let mut player = Player::new(1);
+    let penguin_id = player.penguins[0].penguin_id;
 
     // Reachable tiles from 0 are [0, 2, 1, 5]
     let tile_0 = TileId(0);
@@ -138,17 +156,17 @@ fn test_move_penguin() {
     let unreachable_tile = TileId(3);
 
     // Move failed: penguin not yet placed
-    assert_eq!(player.move_penguin(penguin_ids[0], tile_0, &board, &HashSet::new()), None);
+    assert_eq!(player.move_penguin(penguin_id, tile_0, &board, &HashSet::new()), None);
 
-    player.place_penguin(penguin_ids[0], tile_0, &board);
+    player.place_penguin(penguin_id, tile_0, &board);
 
     // Move failed: tile not reachable from tile 0
-    assert_eq!(player.move_penguin(penguin_ids[0], unreachable_tile, &board, &HashSet::new()), None);
+    assert_eq!(player.move_penguin(penguin_id, unreachable_tile, &board, &HashSet::new()), None);
 
     // success, penguin should now be on tile 5
-    assert_eq!(player.move_penguin(penguin_ids[0], reachable_tile, &board, &HashSet::new()), Some(()));
+    assert_eq!(player.move_penguin(penguin_id, reachable_tile, &board, &HashSet::new()), Some(()));
 
     // Finally, assert that the position of the penguin actually changed
-    let penguin_pos = player.find_penguin_mut(penguin_ids[0]).and_then(|penguin| penguin.tile_id);
+    let penguin_pos = player.find_penguin_mut(penguin_id).and_then(|penguin| penguin.tile_id);
     assert_eq!(penguin_pos, Some(reachable_tile));
 }
