@@ -1,5 +1,7 @@
 use std::iter::FromIterator;
 
+/// Creates a collection of length n with each element mapped from
+/// the current element index to f(index)
 pub fn make_n<Elem, F, Collection>(n: usize, f: F) -> Collection
     where F: FnMut(usize) -> Elem,
           Collection: FromIterator<Elem>,

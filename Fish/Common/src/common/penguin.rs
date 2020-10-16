@@ -19,7 +19,7 @@ pub struct PenguinId(usize);
 pub struct Penguin {
     pub penguin_id: PenguinId,
     /// INVARIANT: tile_id will always be a valid tile in this Tile's Board
-    /// i.e. never a hole
+    /// i.e. never a hole or out of bounds
     pub tile_id: Option<TileId>,
 }
 
@@ -52,5 +52,17 @@ impl Penguin {
     /// Can this penguin be placed on the board?
     pub fn can_place(&self) -> bool {
         self.tile_id.is_none()
+    }
+}
+
+#[test]
+fn test_new() {
+    let penguins = vec![Penguin::new(), Penguin::new(), Penguin::new(), Penguin::new()];
+
+    for (i, penguin) in penguins.iter().enumerate() {
+        assert_eq!(penguin.tile_id, None);
+        for other_penguin in penguins[i+1..].iter() {
+            assert_ne!(penguin.penguin_id, other_penguin.penguin_id);
+        }
     }
 }
