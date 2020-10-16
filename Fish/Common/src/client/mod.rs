@@ -26,6 +26,10 @@ const PURPLE_PENGUIN_FILENAME: &str = "assets/penguin-purple.png";
 /// Text to display above the current turn player image.
 const CURRENT_TURN_TEXT: &str = "Current Turn:";
 
+/// Rough height of the current turn text, used to move the text above
+/// the image of the player whose turn it currently is.
+const CURRENT_TURN_TEXT_HEIGHT: i32 = 15;
+
 /// Width and height of the current window in pixels.
 const WINDOW_SIZE: (i32, i32) = (1600, 900);
 
@@ -34,7 +38,10 @@ const PLAYER_IMAGE_SIZE: (i32, i32) = (66, 100);
 
 /// How many pixels from the bottom-right of the screen the "current turn"
 /// player image is placed.
-const PLAYER_IMAGE_MARGIN: (i32, i32) = (PLAYER_IMAGE_SIZE.0 * 2, PLAYER_IMAGE_SIZE.1 * 2);
+const PLAYER_IMAGE_MARGIN: (i32, i32) = (
+    (PLAYER_IMAGE_SIZE.0 as f32 * 1.5) as i32,
+    (PLAYER_IMAGE_SIZE.1 as f32 * 1.5) as i32
+);
 
 /// Creates a single gtk::Image containing 1-5 fish
 /// This function will panic if given 0 fish.
@@ -133,7 +140,7 @@ fn make_current_turn_widget(gamestate: &GameState) -> gtk::Fixed {
     layout.add(&text);
     layout.move_(&text,
                  WINDOW_SIZE.0 - PLAYER_IMAGE_MARGIN.0,
-                 WINDOW_SIZE.1 - PLAYER_IMAGE_MARGIN.1);
+                 WINDOW_SIZE.1 - PLAYER_IMAGE_MARGIN.1 - CURRENT_TURN_TEXT_HEIGHT);
     layout
 }
 

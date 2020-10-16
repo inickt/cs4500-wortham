@@ -1,5 +1,7 @@
 # Fish Game
 
+![Common/assets/board.png](Fish)
+
 ## Directories
 
 ### Common
