@@ -1,3 +1,6 @@
+/// This file contains all the code implementing the shared
+/// GameState's representation of players and their
+/// game-specific information.
 use crate::common::penguin::{ Penguin, PenguinId };
 use crate::common::board::Board;
 use crate::common::tile::TileId;
@@ -33,6 +36,9 @@ impl PlayerColor {
     }
 }
 
+/// Represents an in-game player. Agnostic of the player's
+/// external information, like username, connection information,
+/// etc.
 #[derive(Debug)]
 pub struct Player {
     pub player_id: PlayerId,

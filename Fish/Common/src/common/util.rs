@@ -1,3 +1,5 @@
+/// This file contains utility functions to abstract over common use cases of built-in
+/// Rust functionality.
 use std::iter::FromIterator;
 
 /// Creates a collection of length n with each element mapped from

@@ -1,3 +1,5 @@
+/// The code in this file implements the Penguin in-game
+/// avatars' data representation and business logic.
 use crate::common::board::Board;
 use crate::common::tile::TileId;
 use std::collections::HashSet;
