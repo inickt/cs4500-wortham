@@ -4,14 +4,21 @@ Under each of the following elements below, indicate below where your
 TAs can find:
 
 - the data description of states, including an interpretation:
+    - https://github.ccs.neu.edu/CS4500-F20/atlanta/blob/6fa5e07b60d531a4ba1d8b2359a842da05c10042/Fish/Common/src/common/gamestate.rs#L35-L49
+    - Our data description is given by our struct definition which contains each field with descriptive names
+      and comments for any invariants and additional points of clarification.
 
 - a signature/purpose statement of functionality that creates states 
+    - https://github.ccs.neu.edu/CS4500-F20/atlanta/blob/6fa5e07b60d531a4ba1d8b2359a842da05c10042/Fish/Common/src/common/gamestate.rs#L52-L56
 
 - unit tests for functionality of taking a turn 
+    - https://github.ccs.neu.edu/CS4500-F20/atlanta/blob/6fa5e07b60d531a4ba1d8b2359a842da05c10042/Fish/Common/src/common/gamestate.rs#L232-L266
 
 - unit tests for functionality of placing an avatar 
+    - https://github.ccs.neu.edu/CS4500-F20/atlanta/blob/6fa5e07b60d531a4ba1d8b2359a842da05c10042/Fish/Common/src/common/gamestate.rs#L199-L230
 
 - unit tests for functionality of final-state test
+    - https://github.ccs.neu.edu/CS4500-F20/atlanta/blob/6fa5e07b60d531a4ba1d8b2359a842da05c10042/Fish/Common/src/common/gamestate.rs#L158-L197
 
 The ideal feedback is a GitHub perma-link to the range of lines in specific
 file or a collection of files for each of the above bullet points.
@@ -35,18 +42,5 @@ Select ONE of the following choices by deleting the other two options.
 
 A) My partner and I contributed equally to this assignment. 
 
-B) My partner and I contributed not *exactly* equally, but *roughly*
-   equally to this assignment.
-
-C) My partner and I did not contribute roughly equally to this
-   assignment; one of us contributed significantly more.
-
-If you chose C, please give some further explanation below describing
-the state of your partnership and whether and how you have been or are
-addressing this disparity. Describe the overall trajectory of your
-partnership from the beginning until now. Be honest with your answer
-here, and with each other. Even if it's uncomfortable reading this
-together right now.
-
-If you chose one of the other two options, you should feel free to
-also add some explanation if you wish. 
+  - We pair programmed most of our time working on the assignment and
+    tried to divide our time as equally as possible.
