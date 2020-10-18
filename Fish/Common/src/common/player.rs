@@ -39,7 +39,7 @@ impl PlayerColor {
 /// Represents an in-game player. Agnostic of the player's
 /// external information, like username, connection information,
 /// etc.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Player {
     pub player_id: PlayerId,
     pub penguins: Vec<Penguin>,

@@ -21,7 +21,7 @@ const MAX_PLAYERS_PER_GAME: usize = 4;
 /// Each player receives 6 - player_count penguins to start the game
 const PENGUIN_FACTOR: usize = 6;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct GameId(usize);
 
 /// Rc<RefCell<T>> gives a copiable, mutable reference to its T
@@ -37,7 +37,7 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// and sent to each client to deserialize to receive the updated game
 /// state each turn. The GameState is rendering-agnostic, so each
 /// client is free to render the GameState however it wishes.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct GameState {
     pub game_id: GameId,
     pub board: Board,
@@ -136,6 +136,10 @@ impl GameState {
         self.players.iter()
             .flat_map(|(_, player)| player.penguins.iter().filter_map(|penguin| penguin.tile_id))
             .collect()
+    }
+
+    pub fn get_valid_moves(&self) -> Vec<Move> {
+        ...
     }
 }
 

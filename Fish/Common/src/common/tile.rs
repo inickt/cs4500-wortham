@@ -16,7 +16,7 @@ use crate::common::board::Board;
 pub struct TileId(pub usize);
 
 /// Represents a single tile on the game board.
-#[derive(Eq)]
+#[derive(Clone, Eq)]
 pub struct Tile {
     /// A Tile's tile_id is it's unique index in the Board.tiles Vec
     pub tile_id: TileId,

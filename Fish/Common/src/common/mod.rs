@@ -10,6 +10,7 @@ pub mod gamestate;
 pub mod player;
 pub mod tile;
 pub mod util;
+pub mod game_tree;
 
 mod direction;
 mod penguin;

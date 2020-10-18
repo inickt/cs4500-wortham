@@ -10,14 +10,14 @@ use std::sync::atomic::{ AtomicUsize, Ordering };
 static TOTAL_PENGUIN_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Id for a Penguin. First penguin uid is 1.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PenguinId(usize);
 
 /// Represents a single Penguin in the Fish game, including its position
 /// on the board and a unique ID. Its position can be None, meaning
 /// it is not placed yet, or Some(BoardPosn), meaning it's placed at
 /// the BoardPosn on the game board.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Penguin {
     pub penguin_id: PenguinId,
     /// INVARIANT: tile_id will always be a valid tile in this Tile's Board
