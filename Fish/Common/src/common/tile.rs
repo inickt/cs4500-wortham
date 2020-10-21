@@ -131,7 +131,7 @@ impl Tile {
 
     /// Helper function for all_reachable_tiles.
     /// Returns a Vec of all tiles reachable from a given direction, including self.
-    fn all_reachable_tiles_in_direction<'b>(&'b self, board: &'b Board, direction: Direction, occupied_tiles: &HashSet<TileId>) -> Vec<&'b Tile> {
+    pub fn all_reachable_tiles_in_direction<'b>(&'b self, board: &'b Board, direction: Direction, occupied_tiles: &HashSet<TileId>) -> Vec<&'b Tile> {
         match self.get_neighbor(board, direction) {
             Some(tile) if !occupied_tiles.contains(&tile.tile_id) => {
                 let mut reachable_tiles = tile.all_reachable_tiles_in_direction(board, direction, occupied_tiles);
