@@ -106,6 +106,15 @@ impl GameState {
         player.move_penguin(penguin, destination, &self.board, occupied)
     }
 
+    /// Perform a turn for the current player. A turn is defined as a player moving one of their penguins.
+    /// This will move a given penguin to a given tile if possible then
+    /// advance the current turn to the next player in the turn order.
+    pub fn take_turn(&mut self, move_: Move) -> Option<()> {
+        let result = self.move_avatar_for_player(self.current_turn, move_.penguin_id, move_.tile_id);
+        self.advance_turn();
+        result
+    }
+
     /// Retrieve a tile by its ID. Will return None if the id
     /// does not reference any existing tile. This can happen
     /// if the tile was removed and has become a hole in the board.
@@ -174,7 +183,17 @@ impl GameState {
     }
 
     pub fn is_game_over(&self) -> bool {
-        !self.winning_players.is_empty()
+        let game_over = !self.winning_players.is_empty();
+        assert_ne!(self.can_any_player_move_penguin(), game_over);
+        game_over
+    }
+
+    /// Advance the turn of this game to the next player's turn
+    /// Will mutate this game's current_turn field
+    pub fn advance_turn(&mut self) {
+        let current_turn_index = self.turn_order.iter().position(|id| id == &self.current_turn).unwrap();
+        let next_turn_index = (current_turn_index + 1) % self.turn_order.len();
+        self.current_turn = self.turn_order[next_turn_index];
     }
 }
 
@@ -193,14 +212,15 @@ pub mod tests {
         GameState::new(1, board, 2)
     }
 
-    // Creates new gamestate with a 4x3 board,
+    // Creates new gamestate with a 5x3 board,
     // no holes, GameId 2, and 2 players.
-    pub fn default_4x4_gamestate() -> SharedGameState {
-        // 0   4   8   12
-        //   1   5   9   13
-        // 2   6   10  14
-        //   3   7   11  15
-        let board = Board::with_no_holes(4, 4, 3);
+    pub fn default_5x3_gamestate() -> SharedGameState {
+        // 0     5     10    15
+        //    1     6     11    16
+        // 2     7     12    17
+        //    3     8     13    18
+        // 4     9     14    19
+        let board = Board::with_no_holes(5, 3, 3);
         GameState::new(2, board, 2)
     }
 

@@ -1,7 +1,7 @@
+//! This file contains code that represents the GameState at any point
+//! during the game, in a lazily-evaluated tree structure.
 use crate::common::gamestate::GameState;
 use crate::common::action::Move;
-use crate::common::penguin::PenguinId;
-use crate::common::tile::TileId;
 use std::collections::HashMap;
 
 /// Represents the entire game state, including any possible move.
@@ -17,6 +17,12 @@ enum Game {
 }
 
 impl Game {
+    /// Initialize a Game tree from the given initial GameState.
+    /// The given state does not have to be the start of a game -
+    /// it is allowed to be any valid game state. It is referred to
+    /// as the initial state because the generated tree will start from
+    /// that state with links to each potential subsequent state, but
+    /// not any previous states.
     fn new(initial_state: &GameState) -> Game {
         // Assert all penguins are already placed on the board
         assert!(initial_state.all_penguins().iter()
@@ -38,6 +44,7 @@ impl Game {
         }
     }
 
+    /// Returns a shared reference to the GameState of the current node of the Game tree
     fn get_state(&self) -> &GameState {
         match self {
             Game::Turn { state, .. } => state,
@@ -45,12 +52,12 @@ impl Game {
         }
     }
 
-    /// Returns the `Game` that would be produced as a result of taking the given Moves in order.
+    /// Returns the `Game` that would be produced as a result of taking the given Move.
     /// If the move is invalid (not in valid_moves or self is `End`) then None is returned
     fn get_game_after_move(&mut self, move_: Move) -> Option<&Game> {
         match self {
-            Game::Turn { state, valid_moves } => {
-                valid_moves.get_mut(&move_).map(|lazy_game| lazy_game.get_or_evaluate())
+            Game::Turn { valid_moves, .. } => {
+                valid_moves.get_mut(&move_).map(|lazy_game| lazy_game.get_evaluated())
             },
             Game::End(_) => None,
         }
@@ -64,7 +71,7 @@ impl Game {
         match self {
             Game::Turn { valid_moves, .. } => {
                 valid_moves.iter_mut().map(|(key, lazy_game)| {
-                    let game = lazy_game.get_or_evaluate();
+                    let game = lazy_game.get_evaluated();
                     (key.clone(), f(game.get_state()))
                 }).collect()
             },
@@ -73,19 +80,27 @@ impl Game {
     }
 }
 
+/// A LazyGame is either an already evaluted Game or
+/// is an Unevaluated thunk that can be evaluated to return a Game.
+/// Since Games are stored as recursive trees in memory keeping
+/// the branches of each Game::Turn as LazyGame::Unevaluated saves
+/// us from allocating an exponential amount of memory for every
+/// possible GameState. 
 enum LazyGame {
     Evaluated(Game),
     Unevaluated(Box<dyn FnMut() -> Game>),
 }
 
 impl LazyGame {
-    fn get_or_evaluate(&mut self) -> &Game {
+    /// Retrieves the Game from this LazyGame,
+    /// evaluating this LazyGame if it hasn't already been
+    fn get_evaluated(&mut self) -> &Game {
         match self {
             LazyGame::Evaluated(game) => game,
             LazyGame::Unevaluated(thunk) => {
                 let game = thunk();
                 *self = LazyGame::Evaluated(game);
-                self.get_or_evaluate()
+                self.get_evaluated()
             },
         }
     }
@@ -97,8 +112,7 @@ impl LazyGame {
         let mut state = state.clone();
         let move_ = move_.clone();
         LazyGame::Unevaluated(Box::new(move || {
-            let current_player = state.current_turn;
-            state.move_avatar_for_player(current_player, move_.penguin_id, move_.tile_id)
+            state.take_turn(move_)
                 .expect(&format!("Invalid move for the given GameState passed to LazyGame::from_move.\
                 \nMove: {:?}\nGameState: {:?}", move_, state));
 
@@ -111,11 +125,10 @@ impl LazyGame {
 mod tests {
     use super::*;
     use crate::common::gamestate::tests::*;
-    use std::collections::HashSet;
 
-    // Starts a game with a 4x4 board and all penguins placed.
+    // Starts a game with a 5x3 board and all penguins placed.
     fn start_game() -> Game {
-        let initial_state = default_4x4_gamestate();
+        let initial_state = default_5x3_gamestate();
         let mut state = initial_state.borrow_mut();
 
         let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
@@ -130,6 +143,21 @@ mod tests {
         Game::new(&state)
     }
 
+    fn get_expected_valid_moves(game: &Game) -> Vec<Move> {
+        let mut expected_valid_moves = vec![];
+        let state = game.get_state();
+
+        let occupied_tiles = state.get_occupied_tiles();
+        for penguin in state.current_player().penguins.iter() {
+            let current_tile = state.get_tile(penguin.tile_id.unwrap()).unwrap();
+            for tile in current_tile.all_reachable_tiles(&state.board, &occupied_tiles) {
+                expected_valid_moves.push(Move::new(penguin.penguin_id, tile.tile_id))
+            }
+        }
+
+        expected_valid_moves
+    }
+
     #[test]
     fn test_new() {
         // valid_moves generated correctly
@@ -137,15 +165,7 @@ mod tests {
         // starting gamestate is same as one passed to new
         let game = start_game();
         let mut valid_moves = game.get_state().get_valid_moves();
-        let mut expected_valid_moves = vec![];
-        let state = game.get_state();
-
-        for penguin in state.current_player().penguins.iter() {
-            let current_tile = state.get_tile(penguin.tile_id.unwrap()).unwrap();
-            for tile in current_tile.all_reachable_tiles(&state.board, &HashSet::new()) {
-                expected_valid_moves.push(Move::new(penguin.penguin_id, tile.tile_id))
-            }
-        }
+        let mut expected_valid_moves = get_expected_valid_moves(&game);
 
         expected_valid_moves.sort();
         valid_moves.sort();
@@ -172,7 +192,26 @@ mod tests {
 
     #[test]
     fn test_get_game_after_move() {
+        let mut initial_game = start_game();
 
+        // record initial moves and the identity of the player whose turn it is
+        let mut initial_valid_moves = initial_game.get_state().get_valid_moves();
+        let initial_turn = initial_game.get_state().current_turn;
+
+        let game_after_move = initial_game.get_game_after_move(initial_valid_moves[0]).unwrap(); // make a move
+
+        // record new moves and the identity of the player whose turn it now is
+        let mut valid_moves = game_after_move.get_state().get_valid_moves();
+        let current_turn = game_after_move.get_state().current_turn;
+        let mut expected_valid_moves = get_expected_valid_moves(&game_after_move);
+
+        initial_valid_moves.sort();
+        valid_moves.sort();
+        expected_valid_moves.sort();
+
+        assert_ne!(initial_turn, current_turn); // turn has changed
+        assert_ne!(initial_valid_moves, valid_moves); // valid moves have changed
+        assert_eq!(valid_moves, expected_valid_moves); // new valid moves are correct
     }
 
     #[test]
@@ -182,11 +221,19 @@ mod tests {
         // Map is_game_over across each state and assert that each value is the
         // same as if we performed the given move then checked is_game_over for
         // the new game state after the move
-        for (move_, game_over) in game.map(|state| state.is_game_over()) {
-            // Assert that there is a game for the given move (via unwrap)
-            let game_after_move = game.get_game_after_move(move_).unwrap();
-            let state_after_move = game_after_move.get_state();
+        let winning_moves = game.map(|state| state.is_game_over());
+        for (&move_, &game_over) in winning_moves.iter() {
+            // Clone the current state, then move the avatar and manually
+            // apply the is_game_over function to emulate map's behaviour.
+            let mut state_after_move = game.get_state().clone();
+            state_after_move.take_turn(move_);
             assert_eq!(state_after_move.is_game_over(), game_over);
+        }
+
+        // ensure map produces a result for every game
+        match &game {
+            Game::Turn { valid_moves, .. } => assert_eq!(winning_moves.len(), valid_moves.len()),
+            Game::End(_) => unreachable!("start_game should return an in-progress game"),
         }
     }
 }

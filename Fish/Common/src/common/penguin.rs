@@ -11,7 +11,7 @@ static TOTAL_PENGUIN_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Id for a Penguin. First penguin uid is 1.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PenguinId(usize);
+pub struct PenguinId(pub usize);
 
 /// Represents a single Penguin in the Fish game, including its position
 /// on the board and a unique ID. Its position can be None, meaning

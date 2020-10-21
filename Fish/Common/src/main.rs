@@ -6,7 +6,7 @@ use common::board::Board;
 use common::tile::TileId;
 
 fn main() {
-    let board = Board::with_no_holes(4, 4, 3);
+    let board = Board::with_no_holes(3, 3, 3);
     let state = GameState::new(2, board, 2);
 
     {
