@@ -7,7 +7,7 @@
 use crate::common::board::Board;
 use crate::common::tile::{ TileId, Tile };
 use crate::common::player::{ Player, PlayerId, PlayerColor };
-use crate::common::penguin::PenguinId;
+use crate::common::penguin::{Penguin, PenguinId};
 use crate::common::action::Move;
 use crate::common::util;
 
@@ -146,7 +146,7 @@ impl GameState {
 
         penguins_to_move.iter().flat_map(|penguin| {
             // penguins in Games are placed, so should always be Some
-            let starting_tile_id = penguin.tile_id.unwrap(); 
+            let starting_tile_id = penguin.tile_id.expect(&format!("Penguin {:?} was not placed!", penguin.penguin_id)); 
             let starting_tile = self.get_tile(starting_tile_id).unwrap();
             let penguin_id = penguin.penguin_id;
 
@@ -161,6 +161,20 @@ impl GameState {
         self.players.iter().flat_map(|(&player_id, player)| {
             player.penguins.iter().map(move |penguin| (player_id, penguin.penguin_id))
         }).collect()
+    }
+
+    /// Get a penguin given its PenguinId
+    pub fn find_penguin(&self, id: PenguinId) -> Option<&Penguin> {
+        self.players.iter().find_map(|(_, player)| player.find_penguin(id))
+    }
+
+    /// Returns the player whose turn it currently is
+    pub fn current_player(&self) -> &Player {
+        self.players.get(&self.current_turn).unwrap()
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        !self.winning_players.is_empty()
     }
 }
 
@@ -181,12 +195,12 @@ pub mod tests {
 
     // Creates new gamestate with a 4x3 board,
     // no holes, GameId 2, and 2 players.
-    pub fn default_4x3_gamestate() -> SharedGameState {
-        // 0   4   8
-        //   1   5   9
-        // 2   6   10
-        //   3   7   11
-        let board = Board::with_no_holes(4, 3, 3);
+    pub fn default_4x4_gamestate() -> SharedGameState {
+        // 0   4   8   12
+        //   1   5   9   13
+        // 2   6   10  14
+        //   3   7   11  15
+        let board = Board::with_no_holes(4, 4, 3);
         GameState::new(2, board, 2)
     }
 

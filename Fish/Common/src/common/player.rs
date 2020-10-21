@@ -95,10 +95,16 @@ impl Player {
         self.penguins.iter().any(|penguin| penguin.can_move(board, occupied_tiles))
     }
 
-    /// Retrieves a penguin by id. If the penguin does not belong to the
-    /// current player this will return None.
+    /// Retrieves a mutable reference to a penguin by id. If the penguin does not
+    /// belong to the current player this will return None.
     pub fn find_penguin_mut(&mut self, penguin_id: PenguinId) -> Option<&mut Penguin> {
         self.penguins.iter_mut().find(|p| penguin_id == p.penguin_id)
+    }
+
+    /// Retrieves an immutable reference to a penguin by id. If the penguin does not
+    /// belong to the current player this will return None.
+    pub fn find_penguin(&self, penguin_id: PenguinId) -> Option<&Penguin> {
+        self.penguins.iter().find(|p| penguin_id == p.penguin_id)
     }
 }
 

@@ -18,6 +18,10 @@ enum Game {
 
 impl Game {
     fn new(initial_state: &GameState) -> Game {
+        // Assert all penguins are already placed on the board
+        assert!(initial_state.all_penguins().iter()
+            .all(|(_, penguin_id)| initial_state.find_penguin(*penguin_id).unwrap().is_placed()));
+
         let valid_moves = initial_state.get_valid_moves();
         if valid_moves.is_empty() {
             Game::End(initial_state.clone())
@@ -107,13 +111,16 @@ impl LazyGame {
 mod tests {
     use super::*;
     use crate::common::gamestate::tests::*;
+    use std::collections::HashSet;
 
-    // Starts a game with a 4x3 board and all penguins placed.
+    // Starts a game with a 4x4 board and all penguins placed.
     fn start_game() -> Game {
-        let initial_state = default_4x3_gamestate();
+        let initial_state = default_4x4_gamestate();
         let mut state = initial_state.borrow_mut();
 
         let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
+        tile_ids.sort();
+        tile_ids.reverse();
 
         for (player_id, penguin_id) in state.all_penguins() {
             let tile_id = tile_ids.pop().unwrap();
@@ -128,17 +135,22 @@ mod tests {
         // valid_moves generated correctly
         //    - have expected moves, check if same as generated
         // starting gamestate is same as one passed to new
-        // p0   p4   8
-        //   p1   p5   9
-        // p2   p6   10
-        //   p3   p7   11
         let game = start_game();
-        let valid_moves = game.get_state().get_valid_moves();
-        // let p5 = PenguinId(5);
-        // let p7 = PenguinId(7);
-        // let expected_valid_moves = vec![
-        //     Move::new(p5, TileId(9)),
-        // ];
+        let mut valid_moves = game.get_state().get_valid_moves();
+        let mut expected_valid_moves = vec![];
+        let state = game.get_state();
+
+        for penguin in state.current_player().penguins.iter() {
+            let current_tile = state.get_tile(penguin.tile_id.unwrap()).unwrap();
+            for tile in current_tile.all_reachable_tiles(&state.board, &HashSet::new()) {
+                expected_valid_moves.push(Move::new(penguin.penguin_id, tile.tile_id))
+            }
+        }
+
+        expected_valid_moves.sort();
+        valid_moves.sort();
+
+        assert_eq!(expected_valid_moves, valid_moves);
     }
 
     #[test]
@@ -165,6 +177,16 @@ mod tests {
 
     #[test]
     fn test_map() {
+        let mut game = start_game();
 
+        // Map is_game_over across each state and assert that each value is the
+        // same as if we performed the given move then checked is_game_over for
+        // the new game state after the move
+        for (move_, game_over) in game.map(|state| state.is_game_over()) {
+            // Assert that there is a game for the given move (via unwrap)
+            let game_after_move = game.get_game_after_move(move_).unwrap();
+            let state_after_move = game_after_move.get_state();
+            assert_eq!(state_after_move.is_game_over(), game_over);
+        }
     }
 }

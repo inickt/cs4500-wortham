@@ -12,7 +12,7 @@ use std::fmt::Debug;
 use crate::common::direction::Direction;
 use crate::common::board::Board;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TileId(pub usize);
 
 /// Represents a single tile on the game board.

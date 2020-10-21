@@ -6,13 +6,21 @@ use common::board::Board;
 use common::tile::TileId;
 
 fn main() {
-    let board = Board::with_holes(6, 4, vec![(2, 3).into()], 3);
-    let gamestate = GameState::new(1, board, 4);
+    let board = Board::with_no_holes(4, 4, 3);
+    let state = GameState::new(2, board, 2);
+
     {
-        let mut gamestate = gamestate.borrow_mut();
-        let (&player_id, player) = gamestate.players.iter().nth(1).unwrap();
-        let penguin_id = player.penguins[0].penguin_id;
-        gamestate.place_avatar_for_player(player_id, penguin_id, TileId(0));
+        let mut state = state.borrow_mut();
+
+        let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
+        tile_ids.sort();
+        tile_ids.reverse();
+
+        for (player_id, penguin_id) in state.all_penguins() {
+            let tile_id = tile_ids.pop().unwrap();
+            state.place_avatar_for_player(player_id, penguin_id, tile_id);
+        }
     }
-    client::show_ui(gamestate);
+
+    client::show_ui(state);
 }
