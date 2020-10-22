@@ -25,8 +25,8 @@ use std::collections::HashMap;
 #[derive(Clone, Debug)]
 pub struct Board {
     pub tiles: HashMap<TileId, Tile>,
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Board {
@@ -105,6 +105,33 @@ impl Board {
         board
     }
 
+    /// Create a Board from a 2D Vec in row-major order
+    /// (a list of rows), where each entry in the matrix
+    /// is a number corresponding to the number of fish on the
+    /// tile at that position. If the number is 0, there
+    /// is a hole at that position.
+    pub fn from_tiles(tiles: Vec<Vec<u32>>) -> Board {
+        let rows = tiles.len() as u32;
+        let columns = tiles.get(0).map_or(0, |row| row.len()) as u32;
+        
+        let mut board = Board::with_no_holes(rows, columns, 1);
+
+        for (y, row) in tiles.into_iter().enumerate() {
+            for (x, fish_count) in row.into_iter().enumerate() {
+                let tile = board.get_tile_mut(x as u32, y as u32).unwrap();
+
+                if fish_count == 0 {
+                    let tile_id = tile.tile_id;
+                    board.remove_tile(tile_id);
+                } else {
+                    tile.fish_count = fish_count as usize;
+                }
+            }
+        }
+
+        board
+    }
+
     /// Computes the TileId for a tile at (tile_x, tile_y) iff the tile is within the given boundaries.
     /// tile_x and tile_y are given as (col, row) rather than position in px
     fn compute_tile_id(board_width: i64, board_height: i64, tile_x: i64, tile_y: i64) -> Option<TileId> {
@@ -130,6 +157,13 @@ impl Board {
             self.height as i64, tile_x as i64, tile_y as i64).unwrap();
 
         self.tiles.get(&expected_tile_id)
+    }
+
+    pub fn get_tile_mut(&mut self, tile_x: u32, tile_y: u32) -> Option<&mut Tile> {
+        let expected_tile_id = Board::compute_tile_id(self.width as i64,
+            self.height as i64, tile_x as i64, tile_y as i64).unwrap();
+
+        self.tiles.get_mut(&expected_tile_id)
     }
 
     /// Removes a given Tile from the board if possible.

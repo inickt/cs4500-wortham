@@ -48,7 +48,7 @@ impl Hash for Tile {
 
 impl Debug for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.tile_id.0)
+        write!(f, "tile_id: {}, fish: {}", self.tile_id.0, self.fish_count)
     }
 }
 

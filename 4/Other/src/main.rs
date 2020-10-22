@@ -48,26 +48,28 @@ impl JSONPlayersAndBoard {
 
 /// Converts a JSON representation of a board to
 /// the board module's Board representation.
-fn board_from_json(board: &JSONBoard) -> Board {
-    let rows = board.len();
-    let columns = board.iter().map(|row| row.len()).max().unwrap_or(0);
-    let mut holes = Vec::new();
+fn board_from_json(json_board: &JSONBoard) -> Board {
+    let rows = json_board.len();
+    let columns = json_board.iter().map(|row| row.len()).max().unwrap_or(0);
+    let mut tiles = vec![];
 
-    for (row_i, row) in board.iter().enumerate() {
-        for (col_i, &num_fish) in row.iter().enumerate() {
-            if num_fish == 0 {
-                holes.push(BoardPosn::from((col_i as u32, row_i as u32)));
-            }
+    for (row_i, json_row) in json_board.iter().enumerate() {
+        let mut row = vec![];
+
+        for (col_i, &num_fish) in json_row.iter().enumerate() {
+            row.push(num_fish);
         }
 
         // Boards may not contain an equal number of columns in each row,
         // push the remains of any smaller rows as holes
-        for col_i in row.len() .. columns {
-            holes.push(BoardPosn::from((col_i as u32, row_i as u32)));
+        for col_i in json_row.len() .. columns {
+            row.push(0);
         }
+
+        tiles.push(row);
     }
 
-    Board::with_holes(rows as u32, columns as u32, holes, 0)
+    Board::from_tiles(tiles)
 }
 
 fn make_color_mapping(gamestate: &GameState, json_players: &[JSONPlayer]) -> HashMap<PlayerId, JSONColor> {
@@ -110,7 +112,9 @@ fn try_move_penguin(gamestate: &mut GameState, penguin_id: PenguinId, direction:
     let penguin = gamestate.current_player().find_penguin(penguin_id).unwrap();
     let tile = gamestate.get_tile(penguin.tile_id.unwrap()).unwrap();
     let occupied_tiles = gamestate.get_occupied_tiles();
-    let reachable_tiles = tile.all_reachable_tiles_in_direction(&gamestate.board, direction, &occupied_tiles);
+    let mut reachable_tiles = tile.all_reachable_tiles_in_direction(&gamestate.board, direction, &occupied_tiles);
+    reachable_tiles.pop(); // Remove the current tile since it is considered reachable from itself in the helper above
+
     if reachable_tiles.is_empty() {
         false
     } else {
@@ -128,9 +132,10 @@ fn serialize_board(board: &Board) -> JSONBoard {
         let mut new_row = vec![];
         for col_i in 0 .. board.width {
             let tile = board.get_tile(col_i, row_i);
-            let fish_count = tile.map_or(0, |tile| tile.fish_count);
+            let fish_count = tile.map_or(0, |tile| tile.fish_count as u32);
             new_row.push(fish_count);
         }
+        rows.push(new_row);
     }
 
     rows
@@ -188,6 +193,7 @@ fn main() {
         if try_move_penguin(&mut gamestate, first_penguin, *direction) {
             let state = serialize_gamestate(&gamestate, &player_color_mapping);
             println!("{}", serde_json::to_string(&state).unwrap());
+            return;
         }
     }
 
