@@ -22,7 +22,7 @@ pub struct Tile {
     pub tile_id: TileId,
 
     /// How many fish are currently on this tile
-    pub fish_count: u8,
+    pub fish_count: usize,
 
     // Adjacent tiles in each direction. If there is no tile
     // or a hole in the given direction then the tile is None
@@ -53,7 +53,7 @@ impl Debug for Tile {
 }
 
 impl Tile {
-    pub fn new(tile_id: usize, fish_count: u8) -> Tile {
+    pub fn new(tile_id: usize, fish_count: usize) -> Tile {
         Tile {
             tile_id: TileId(tile_id),
             fish_count,
@@ -67,7 +67,7 @@ impl Tile {
     }
 
     /// Get the amount of fish on this Tile
-    pub fn get_fish_count(&self) -> u8 {
+    pub fn get_fish_count(&self) -> usize {
         self.fish_count
     }
 

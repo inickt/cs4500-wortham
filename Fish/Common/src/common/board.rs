@@ -53,10 +53,10 @@ impl Board {
     /// south tile = [x, y + 2]
     /// southeast tile = [x + is-odd-row, y + 1]
     /// southwest tile = [x - is-even-row, y + 1]
-    pub fn with_no_holes(rows: u32, columns: u32, fish_per_tile: u8) -> Board {
+    pub fn with_no_holes(rows: u32, columns: u32, fish_per_tile: usize) -> Board {
         let mut tiles = HashMap::new();
 
-        // Convert row-major form to the column-major form used internally.fish_per_tile
+        // Convert row-major form to the column-major form used internally.
         // Also convert to signed representation for bounds checking later which may use negatives.
         let (width, height) = (columns as i64, rows as i64);
 
@@ -133,13 +133,14 @@ impl Board {
     }
 
     /// Removes a given Tile from the board if possible.
-    /// Returns true if the tile was successfully removed.
-    pub fn remove_tile(&mut self, tile_id: TileId) -> bool {
+    /// Returns the amount of fish on the tile, or 0 if a tile was not removed.
+    pub fn remove_tile(&mut self, tile_id: TileId) -> usize {
         if let Some(tile) = self.tiles.remove(&tile_id) {
+            let fish_count = tile.get_fish_count();
             tile.unlink_from_neighbors(self);
-            true
+            fish_count
         } else {
-            false
+            0
         }
     }
 }
@@ -259,7 +260,8 @@ fn test_board_remove_tile() {
     assert_eq!(Some(tile_neighbor_sw.tile_id), tile_to_remove.southwest);
     assert_eq!(tile_neighbor_se.northwest, Some(tile_to_remove.tile_id));
     assert_eq!(tile_neighbor_sw.northeast, Some(tile_to_remove.tile_id));
-    assert!(b.remove_tile(TileId(2)));
+    // all tiles have 3 fish on them, and remove_tile returns # fish on tile
+    assert_eq!(b.remove_tile(TileId(2)), 3);
     let tile_neighbor_se = &b.tiles[&TileId(3)];
     let tile_neighbor_sw = &b.tiles[&TileId(1)];
     assert_eq!(b.tiles.len(), old_num_tiles - 1);

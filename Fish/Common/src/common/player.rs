@@ -44,6 +44,7 @@ pub struct Player {
     pub player_id: PlayerId,
     pub penguins: Vec<Penguin>,
     pub color: PlayerColor,
+    pub score: usize, // number of fish this player has collected
 }
 
 impl Player {
@@ -53,7 +54,7 @@ impl Player {
         let player_id = PlayerId(TOTAL_PLAYER_COUNT.fetch_add(1, Ordering::SeqCst));
         let penguins = util::make_n(penguin_count, |_| Penguin::new());
         let color = PlayerColor::from_id(player_id); // since IDs will be sequential, colors will be as well
-        Player { player_id, penguins, color }
+        Player { player_id, penguins, color, score: 0 }
     }
 
     /// Places one of this players' penguins to a new location on the given board.

@@ -18,7 +18,7 @@ fn main() {
 
         for (player_id, penguin_id) in state.all_penguins() {
             let tile_id = tile_ids.pop().unwrap();
-            state.place_avatar_for_player(player_id, penguin_id, tile_id);
+            state.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
         }
     }
 

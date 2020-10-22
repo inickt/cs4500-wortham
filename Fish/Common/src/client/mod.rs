@@ -46,7 +46,7 @@ const PLAYER_IMAGE_MARGIN: (i32, i32) = (
 /// Creates a single gtk::Image containing 1-5 fish
 /// This function will panic if given 0 fish.
 /// If asked for > 5 fish, this function will return an image of only 5 fish.
-fn make_fish_image(fish_count: u8) -> Image {
+fn make_fish_image(fish_count: usize) -> Image {
     assert_ne!(fish_count, 0);
 
     // Limit tiles to displaying a max of 5 fish - that is all we have images for.

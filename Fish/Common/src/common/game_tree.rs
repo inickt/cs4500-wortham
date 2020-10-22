@@ -112,7 +112,7 @@ impl LazyGame {
         let mut state = state.clone();
         let move_ = move_.clone();
         LazyGame::Unevaluated(Box::new(move || {
-            state.take_turn(move_)
+            state.move_avatar_for_current_player(move_)
                 .expect(&format!("Invalid move for the given GameState passed to LazyGame::from_move.\
                 \nMove: {:?}\nGameState: {:?}", move_, state));
 
@@ -137,7 +137,7 @@ mod tests {
 
         for (player_id, penguin_id) in state.all_penguins() {
             let tile_id = tile_ids.pop().unwrap();
-            state.place_avatar_for_player(player_id, penguin_id, tile_id);
+            state.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
         }
 
         Game::new(&state)
@@ -226,7 +226,7 @@ mod tests {
             // Clone the current state, then move the avatar and manually
             // apply the is_game_over function to emulate map's behaviour.
             let mut state_after_move = game.get_state().clone();
-            state_after_move.take_turn(move_);
+            state_after_move.move_avatar_for_current_player(move_);
             assert_eq!(state_after_move.is_game_over(), game_over);
         }
 
