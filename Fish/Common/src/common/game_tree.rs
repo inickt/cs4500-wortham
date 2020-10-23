@@ -4,10 +4,11 @@ use crate::common::gamestate::GameState;
 use crate::common::action::Move;
 use std::collections::HashMap;
 
-/// Represents the entire game state, including any possible move.
+/// Represents an entire game of Fish, starting from the given GameState
+/// passed to Game::new.
 /// Takes the form of a tree structure with the nodes being Turns,
 /// leaves being Ends, and branches being the valid_moves mappings.
-/// Each node store the GameState representing the data about the
+/// Each node stores the GameState representing the data about the
 /// game at that point in time.
 /// Uses lazy evaluation to avoid storing the entire data structure
 /// in memory. See the LazyGame struct for more info.
