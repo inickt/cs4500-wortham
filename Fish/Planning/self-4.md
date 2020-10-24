@@ -17,7 +17,7 @@ TAs can find:
 
 
 - the data description of the game tree, including an interpretation;
-  - https://github.ccs.neu.edu/CS4500-F20/atlanta/blob/14de83f397ac5e9d452e7e0de7838cae685ad58d/Fish/Common/src/common/game_tree.rs#L7-L14
+  - https://github.ccs.neu.edu/CS4500-F20/atlanta/blob/14de83f397ac5e9d452e7e0de7838cae685ad58d/Fish/Common/src/common/game_tree.rs#L7-L18
 
 
 - a signature/purpose statement of functionality for the first query function
