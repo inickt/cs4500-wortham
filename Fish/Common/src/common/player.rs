@@ -39,7 +39,7 @@ impl PlayerColor {
 /// Represents an in-game player. Agnostic of the player's
 /// external information, like username, connection information,
 /// etc.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Player {
     pub player_id: PlayerId,
     pub penguins: Vec<Penguin>,
@@ -106,6 +106,11 @@ impl Player {
     /// belong to the current player this will return None.
     pub fn find_penguin(&self, penguin_id: PenguinId) -> Option<&Penguin> {
         self.penguins.iter().find(|p| penguin_id == p.penguin_id)
+    }
+
+    pub fn get_unplaced_penguin_id(&self) -> Option<PenguinId> {
+        self.penguins.iter().find(|penguin| !penguin.is_placed())
+            .map(|penguin| penguin.penguin_id)
     }
 }
 

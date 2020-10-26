@@ -152,6 +152,12 @@ impl Board {
         BoardPosn { x, y }
     }
 
+    /// Returns the TileId of the tile at tile_x, tile_y on this board
+    pub fn get_tile_id(&self, tile_x: u32, tile_y: u32) -> Option<TileId> {
+        self.get_tile(tile_x, tile_y).map(|tile| tile.tile_id)
+    }
+
+    /// Returns the tile at tile_x, tile_y on this board
     pub fn get_tile(&self, tile_x: u32, tile_y: u32) -> Option<&Tile> {
         let expected_tile_id = Board::compute_tile_id(self.width as i64,
             self.height as i64, tile_x as i64, tile_y as i64).unwrap();
@@ -159,6 +165,7 @@ impl Board {
         self.tiles.get(&expected_tile_id)
     }
 
+    /// Returns a mutable reference to the tile at tile_x, tile_y on this board
     pub fn get_tile_mut(&mut self, tile_x: u32, tile_y: u32) -> Option<&mut Tile> {
         let expected_tile_id = Board::compute_tile_id(self.width as i64,
             self.height as i64, tile_x as i64, tile_y as i64).unwrap();

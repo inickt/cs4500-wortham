@@ -12,7 +12,7 @@ use std::collections::HashMap;
 /// game at that point in time.
 /// Uses lazy evaluation to avoid storing the entire data structure
 /// in memory. See the LazyGame struct for more info.
-enum Game {
+pub enum Game {
     Turn { state: GameState, valid_moves: HashMap<Move, LazyGame> },
     End(GameState),
 }
@@ -24,7 +24,7 @@ impl Game {
     /// as the initial state because the generated tree will start from
     /// that state with links to each potential subsequent state, but
     /// not any previous states.
-    fn new(initial_state: &GameState) -> Game {
+    pub fn new(initial_state: &GameState) -> Game {
         // Assert all penguins are already placed on the board
         assert!(initial_state.all_penguins().iter()
             .all(|(_, penguin_id)| initial_state.find_penguin(*penguin_id).unwrap().is_placed()));
@@ -66,7 +66,7 @@ impl Game {
 
     /// Applies a function to the Game for every valid move, returning
     /// a HashMap of the same moves mapped to their new results
-    fn map<T, F>(&mut self, mut f: F) -> HashMap<Move, T>
+    pub fn map<T, F>(&mut self, mut f: F) -> HashMap<Move, T>
         where F: FnMut(&GameState) -> T
     {
         match self {
@@ -87,7 +87,7 @@ impl Game {
 /// the branches of each Game::Turn as LazyGame::Unevaluated saves
 /// us from allocating an exponential amount of memory for every
 /// possible GameState. 
-enum LazyGame {
+pub enum LazyGame {
     Evaluated(Game),
     Unevaluated(Box<dyn FnMut() -> Game>),
 }

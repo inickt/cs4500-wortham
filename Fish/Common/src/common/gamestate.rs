@@ -204,6 +204,10 @@ impl GameState {
         let next_turn_index = (current_turn_index + 1) % self.turn_order.len();
         self.current_turn = self.turn_order[next_turn_index];
     }
+
+    pub fn player_score(&self, player_id: PlayerId) -> usize {
+        self.players[&player_id].score
+    }
 }
 
 #[cfg(test)]
