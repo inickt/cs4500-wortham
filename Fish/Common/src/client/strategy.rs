@@ -64,41 +64,28 @@ pub fn move_penguin_minmax(state: &mut GameState, lookahead: usize) {
 ///   continuously decreasing. The function terminates when either lookahead reaches 0 or a Game::End\
 ///   node is given, whichever comes first.
 /// 
-/// Finds a move for a penguin for the given player based on the following algorithm:
-/// 1. If it is the given player's turn, find the move that maximizes their score.
-///    Otherwise, find the move that minimizes their score. To find the potential score
-///    of each move, recurse up to lookahead - 1 number of turns.
-///    1.1: If the game is over or if (lookahead is 0 and it is the player's turn), their
-///         score is just their current player_score within the current game state.
-/// 2. If multiple moves are found in (1) of the same score, tie break them by taking (in order):
-///    2.1: The move with the lowest starting row, then column
-///    2.2: The move with the lowest ending row, then column
+/// See find_best_move for the specific algorithm used to select the best move.
 fn find_best_score_and_moves(game: &mut Game, player: PlayerId, lookahead: usize) -> (usize, Vec<Move>) {
-    match &game {
-        Game::End(state) => (state.player_score(player), vec![]),
-        Game::Turn { state, .. } => {
-            let is_players_turn = state.current_turn == player;
+    let is_players_turn = game.get_state().current_turn == player;
 
-            if lookahead == 0 && is_players_turn {
-                (state.player_score(player), vec![])
-            } else {
-                let lookahead = lookahead - if is_players_turn { 1 } else { 0 };
+    if game.is_game_over() || (lookahead == 0 && is_players_turn) {
+        (game.get_state().player_score(player), vec![])
+    } else {
+        // Lookahead is counted in rounds where every player takes a turn,
+        // so only decrease it when the given player takes a turn.
+        let lookahead = lookahead - if is_players_turn { 1 } else { 0 };
 
-                // Recurse first, getting the expected states after each possible move the current player can take
-                // assuming the given player maximizes their score and all opponents minimize it.
-                let possible_moves = game.map(|state| {
-                    let mut game_after_move = Game::new(state);
-                    find_best_score_and_moves(&mut game_after_move, player, lookahead)
-                });
+        // Recurse first, getting the expected states after each possible move the current player can take
+        // assuming the given player maximizes their score and all opponents minimize it.
+        let possible_moves = game.map(|state| {
+            let mut game_after_move = Game::new(state);
+            find_best_score_and_moves(&mut game_after_move, player, lookahead)
+        });
 
-                // Maximize the score for the current player if its their turn, otherwize take the move that minimizes it
-                let state = game.get_state();
-                let (new_move, (score, mut move_history)) = filter_moves_with_tiebreaker(state, is_players_turn, possible_moves);
-
-                move_history.push(new_move);
-                (score, move_history)
-            }
-        },
+        // Maximize the score for the given player if it's their turn, otherwise take the move that minimizes it
+        let (new_move, (score, mut move_history)) = find_best_move(game.get_state(), is_players_turn, possible_moves);
+        move_history.push(new_move);
+        (score, move_history)
     }
 }
 
@@ -109,7 +96,7 @@ fn find_best_score_and_moves(game: &mut Game, player: PlayerId, lookahead: usize
 /// multiple equally-scored moves.
 /// 
 /// Returns the (key, value) pair of the given hashmap that represents the best turn following the rules above.
-fn filter_moves_with_tiebreaker(state: &GameState, is_players_turn: bool, moves: HashMap<Move, (usize, Vec<Move>)>) -> (Move, (usize, Vec<Move>)) {
+fn find_best_move(state: &GameState, is_players_turn: bool, moves: HashMap<Move, (usize, Vec<Move>)>) -> (Move, (usize, Vec<Move>)) {
     let moves = if is_players_turn {
         all_max_by_key(moves.into_iter(), |(_, (score, _))| *score)
     } else {

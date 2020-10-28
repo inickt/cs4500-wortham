@@ -79,6 +79,13 @@ impl Game {
             Game::End(_) => HashMap::new(),
         }
     }
+
+    pub fn is_game_over(&self) -> bool {
+        match self {
+            Game::Turn { .. } => false,
+            Game::End(_) => true,
+        }
+    }
 }
 
 /// A LazyGame is either an already evaluted Game or
