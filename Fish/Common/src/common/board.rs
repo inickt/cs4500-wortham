@@ -158,17 +158,19 @@ impl Board {
     }
 
     /// Returns the tile at tile_x, tile_y on this board
+    /// Returns None if hole or out of bounds
     pub fn get_tile(&self, tile_x: u32, tile_y: u32) -> Option<&Tile> {
         let expected_tile_id = Board::compute_tile_id(self.width as i64,
-            self.height as i64, tile_x as i64, tile_y as i64).unwrap();
+            self.height as i64, tile_x as i64, tile_y as i64)?;
 
         self.tiles.get(&expected_tile_id)
     }
 
     /// Returns a mutable reference to the tile at tile_x, tile_y on this board
+    /// Returns None if hole or out of bounds
     pub fn get_tile_mut(&mut self, tile_x: u32, tile_y: u32) -> Option<&mut Tile> {
         let expected_tile_id = Board::compute_tile_id(self.width as i64,
-            self.height as i64, tile_x as i64, tile_y as i64).unwrap();
+            self.height as i64, tile_x as i64, tile_y as i64)?;
 
         self.tiles.get_mut(&expected_tile_id)
     }

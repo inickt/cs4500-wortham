@@ -7,10 +7,10 @@
 
 /// Represents the x and y position of a tile on the game,
 /// in row (y) and column (x) index (NOT px) starting at 0
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct BoardPosn {
-    pub x: u32,
     pub y: u32,
+    pub x: u32,
 }
 
 impl From<(u32, u32)> for BoardPosn {

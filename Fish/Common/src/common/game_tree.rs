@@ -46,7 +46,7 @@ impl Game {
     }
 
     /// Returns a shared reference to the GameState of the current node of the Game tree
-    fn get_state(&self) -> &GameState {
+    pub fn get_state(&self) -> &GameState {
         match self {
             Game::Turn { state, .. } => state,
             Game::End(state) => state,
@@ -125,12 +125,10 @@ impl LazyGame {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::gamestate::tests::*;
 
-    // Starts a game with a 5x3 board and all penguins placed.
+    // Starts a game with a 3 row, 5 column board and all penguins placed.
     fn start_game() -> Game {
-        let initial_state = default_5x3_gamestate();
-        let mut state = initial_state.borrow_mut();
+        let mut state = GameState::with_default_board(5, 3, 2);
 
         let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
         tile_ids.sort();

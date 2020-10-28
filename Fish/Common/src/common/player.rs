@@ -112,6 +112,10 @@ impl Player {
         self.penguins.iter().find(|penguin| !penguin.is_placed())
             .map(|penguin| penguin.penguin_id)
     }
+
+    pub fn has_unplaced_penguins(&self) -> bool {
+        self.penguins.iter().any(|penguin| !penguin.is_placed())
+    }
 }
 
 #[test]

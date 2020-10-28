@@ -15,7 +15,7 @@ use gtk::prelude::*;
 use gtk::{ StateFlags, Image, Fixed };
 use gdk::RGBA;
 
-mod strategy;
+pub mod strategy;
 
 const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";

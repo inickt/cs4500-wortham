@@ -3,24 +3,24 @@ mod common;
 
 use common::gamestate::GameState;
 use common::board::Board;
-use common::tile::TileId;
+use client::strategy::{move_penguin_minmax, place_penguin_zigzag};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 fn main() {
-    let board = Board::with_no_holes(3, 3, 3);
-    let state = GameState::new(2, board, 2);
+    let board = Board::with_no_holes(3, 5, 3);
+    let mut state = GameState::new(2, board, 2);
 
-    {
-        let mut state = state.borrow_mut();
+    let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
+    tile_ids.sort();
+    tile_ids.reverse();
 
-        let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
-        tile_ids.sort();
-        tile_ids.reverse();
-
-        for (player_id, penguin_id) in state.all_penguins() {
-            let tile_id = tile_ids.pop().unwrap();
-            state.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
-        }
+    for (player_id, penguin_id) in state.all_penguins() {
+        place_penguin_zigzag(&mut state);
     }
 
+    move_penguin_minmax(&mut state, 1);
+
+    let state = Rc::new(RefCell::new(state));
     client::show_ui(state);
 }

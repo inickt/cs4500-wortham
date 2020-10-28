@@ -3,15 +3,16 @@
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::Game;
 use crate::common::player::PlayerId;
-use crate::common::util::map_slice;
 use crate::common::action::Move;
-use crate::common::tile::TileId;
+use crate::common::util::{ all_min_by_key, all_max_by_key };
 
-/// This function is a placement strategy that places a penguin
-/// for the player whose turn it currently is at the next available spot on the
-/// game board, following the following zig-zag algorithm:
+use std::collections::HashMap;
+
+/// Places a penguin for the player whose turn it currently is 
+/// at the next available spot on the game board, according to
+/// the following zig-zag algorithm:
 /// 1. Start at row 0, col 0
-/// 2. Search right -> left in the current row
+/// 2. Search left -> right in the current row
 /// 3. If there's an empty spot, place a penguin there and exit
 /// 4. If not, go to the next row and go back to step 2
 /// 
@@ -39,28 +40,46 @@ pub fn place_penguin_zigzag(state: &mut GameState) {
     unreachable!("place_penguin_zigzag: cannot place penguin, all board positions are filled")
 }
 
-/// Termination condition: lookahead is strictly decreasing and this function terminates
-/// when lookahead = 0
-pub fn move_penguin_minmax(state: &GameState, player: PlayerId, lookahead: usize) {
+/// Makes a move to maximize the current player's score after looking ahead
+/// a given number of turns, assuming that other players will attempt to minimize
+/// the current player's score.
+/// 
+/// Panics if the game is already over.
+pub fn move_penguin_minmax(state: &mut GameState, lookahead: usize) {
     let mut game = Game::new(state);
-    let (_, moves) = move_penguin_minmax_helper(&mut game, player, lookahead);
+    let (_, moves) = find_best_score_and_moves(&mut game, state.current_turn, lookahead);
 
-    let move_to_take = moves.last().expect("Cannot take any moves with the given lookahead, or the game is over!");
+    let move_to_take = *moves.last().expect("The game is over, there are no valid moves!");
+    state.move_avatar_for_current_player(move_to_take).unwrap();
 }
 
-//#[cfg(target = "ios")]
-/// Returns moves in reverse order
+/// Traverse the Game tree to find a set of moves that maximizes the score of the given player,
+/// assuming all opponents want to minimize the player's score.
+/// 
+/// Returns the score of the given player and a Vec of all moves of each player in reverse order
+///     i.e. the first move taken in the path occurs last in the Vec
 /// 
 /// Termination: lookahead decreases by 1 each time the given player takes a turn. Since the
-///   turn order will always come back to the same player eventually, this is continuously decreasing.
-///   The function terminates when either lookahead reaches 0 or a Game::End node is given, whichever
-///   comes first.
-fn move_penguin_minmax_helper(game: &mut Game, player: PlayerId, lookahead: usize) -> (usize, Vec<Move>) {
-    match game {
+///   turn order will always come back to the same player eventually (unless the game ends), this is
+///   continuously decreasing. The function terminates when either lookahead reaches 0 or a Game::End\
+///   node is given, whichever comes first.
+/// 
+/// Finds a move for a penguin for the given player based on the following algorithm:
+/// 1. If it is the given player's turn, find the move that maximizes their score.
+///    Otherwise, find the move that minimizes their score. To find the potential score
+///    of each move, recurse up to lookahead - 1 number of turns.
+///    1.1: If the game is over or if (lookahead is 0 and it is the player's turn), their
+///         score is just their current player_score within the current game state.
+/// 2. If multiple moves are found in (1) of the same score, tie break them by taking (in order):
+///    2.1: The move with the lowest starting row, then column
+///    2.2: The move with the lowest ending row, then column
+fn find_best_score_and_moves(game: &mut Game, player: PlayerId, lookahead: usize) -> (usize, Vec<Move>) {
+    match &game {
+        Game::End(state) => (state.player_score(player), vec![]),
         Game::Turn { state, .. } => {
             let is_players_turn = state.current_turn == player;
 
-            if lookahead == 0 {
+            if lookahead == 0 && is_players_turn {
                 (state.player_score(player), vec![])
             } else {
                 let lookahead = lookahead - if is_players_turn { 1 } else { 0 };
@@ -69,39 +88,52 @@ fn move_penguin_minmax_helper(game: &mut Game, player: PlayerId, lookahead: usiz
                 // assuming the given player maximizes their score and all opponents minimize it.
                 let possible_moves = game.map(|state| {
                     let mut game_after_move = Game::new(state);
-                    move_penguin_minmax_helper(&mut game_after_move, player, lookahead)
-                }).into_iter();
+                    find_best_score_and_moves(&mut game_after_move, player, lookahead)
+                });
 
-                // Now of the current moves we can take (and expected outcomes of each) either maximize the player
-                // score or minimize it - depending on if it is the given player's turn or not.
-                if is_players_turn {
-                    let (new_move, (score, mut moves)) = possible_moves.max_by_key(|(_, (score, _))| *score).unwrap();
-                    moves.push(new_move);
-                    (score, moves)
-                } else {
-                    // Don't push the current move to the returned moves list if this is not
-                    // the given's player's turn. Just try to minimize the player's score instead.
-                    possible_moves.min_by_key(|(_, (score, _))| *score).unwrap().1
-                }
+                // Maximize the score for the current player if its their turn, otherwize take the move that minimizes it
+                let state = game.get_state();
+                let (new_move, (score, mut move_history)) = filter_moves_with_tiebreaker(state, is_players_turn, possible_moves);
+
+                move_history.push(new_move);
+                (score, move_history)
             }
         },
-        Game::End(state) => {
-            (state.player_score(player), vec![])
-        },
     }
+}
+
+/// If it is the given player's turn, filter the moves that maximizes their score.
+/// Otherwise, filter the moves that minimizes their score.
+/// 
+/// Filters by the minimum starting position then the minimum ending position if needed to tie break
+/// multiple equally-scored moves.
+/// 
+/// Returns the (key, value) pair of the given hashmap that represents the best turn following the rules above.
+fn filter_moves_with_tiebreaker(state: &GameState, is_players_turn: bool, moves: HashMap<Move, (usize, Vec<Move>)>) -> (Move, (usize, Vec<Move>)) {
+    let moves = if is_players_turn {
+        all_max_by_key(moves.into_iter(), |(_, (score, _))| *score)
+    } else {
+        all_min_by_key(moves.into_iter(), |(_, (score, _))| *score)
+    };
+
+    // If we still have a tie, settle it by the penguin's position then the destination position in that  order
+    let moves = all_min_by_key(moves, |(move_, _)| state.get_penguin_tile_position(move_.penguin_id).unwrap());
+    let mut moves = all_min_by_key(moves, |(move_, _)| state.board.get_tile_position(move_.tile_id));
+
+    moves.nth(0).unwrap()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::gamestate::tests::default_5x3_gamestate;
+    use crate::common::tile::TileId;
 
     #[test]
     fn test_place_penguin_zigzag() {
-        let state = default_5x3_gamestate();
-        let mut state = state.borrow_mut();
+        let mut state = GameState::with_default_board(3, 5, 2);
 
         let penguins_count = state.all_penguins().len();
+        let first_player_id = state.current_player().player_id;
 
         let occupied_tiles_before_place = state.get_occupied_tiles();
         assert_eq!(occupied_tiles_before_place.len(), 0);
@@ -142,10 +174,92 @@ mod tests {
             }
         }
 
+        // are we back at the first player's turn?
+        // This should always be the case since each player should have an equal number of penguins
+        assert_eq!(first_player_id, state.current_player().player_id);
+
     }
 
+    /// This test assures that the algorithm will pick the best move for a one-turn lookahead.
+    /// Since this board has 3 fish on each tile, there will be many such moves. The test also
+    /// ensures that the "tiebreaker" criteria of lowest row and column within that row are met.
     #[test]
     fn test_move_penguin_minmax() {
-        assert!(true);
+        // 0     4     7    10     13
+        //    1     5     8     11    14
+        // 2     6     9    12     15
+        // has 3 fish on each tile
+        let mut state = GameState::with_default_board(3, 5, 2);
+
+        for _ in 0 .. state.all_penguins().len() {
+            place_penguin_zigzag(&mut state); // place all penguins using the zigzag method
+        }
+
+        // placements of penguins (p1 = player1, p2 = player2)
+        // 3 fish on each tile
+        // p1    p2    p1    p2    p1
+        //    p2    p1    p2    11   14
+        // 2     6     9     12    15
+
+        // looking ahead 1 turn, the move algorithm should pick the move p1(0,0) -> 2.
+        // since all tiles have 3 fish, the algorithm should pick the move with the lowest row,
+        // and within that row, the lowest column, since the gain will be 3 for any move.
+        let penguin_to_move = state.find_penguin_at_position((0, 0).into()).unwrap().penguin_id;
+
+        move_penguin_minmax(&mut state, 1);
+        let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
+        let new_pos = state.board.get_tile_position(new_tile);
+        assert_eq!(new_pos, (0, 2).into());
+    }
+
+    /// This test ensures that the algorithm will make winning moves
+    /// when looking many turns ahead.
+    #[test]
+    fn test_move_penguin_minmax_lookahead() {
+        let mut state = GameState::with_default_board(3, 5, 2);
+
+        for _ in 0 .. state.all_penguins().len() {
+            place_penguin_zigzag(&mut state); // place all penguins using the zigzag method
+        }
+
+        // initial placements of penguins (p1 = player1, p2 = player2)
+        // 3 fish on each tile
+        // p1    p2    p1    p2   p1
+        //    p2    p1    p2    3    3
+        // 3     3     3     3    3
+
+        // end placements of penguins (p1 = player1, p2 = player2, x = hole)
+        // p1 (4) score: 4 tiles captured x 3 fish = 12
+        // p2 (5) score: 3 tiles captured x 3 fish = 9
+        // x     x     p1    x     x 
+        //    p2    p1    x     x    p1
+        // p1    p2    p2    p2    x 
+
+        // Looking ahead 20 turns, the move algorithm sees multiple paths to a winning game.
+        // It will eventually have to move (x, y) p1(4, 0) to (3, 1). First, it moves p1(0,0) to (0,2).
+        // Since this move will happen regardless, it makes it first because it is the move with the lowest
+        // column in the lowest row.
+
+        // First move should be (0, 0) to (0, 2)
+        let penguin_to_move = state.find_penguin_at_position((0, 0).into()).unwrap().penguin_id;
+        move_penguin_minmax(&mut state, 20);
+        let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
+        let new_pos = state.board.get_tile_position(new_tile);
+        assert_eq!(new_pos, (0, 2).into());
+
+        // Second move should be player 2 (1, 0) to (1, 2)
+        let penguin_to_move = state.find_penguin_at_position((1, 0).into()).unwrap().penguin_id;
+        let expected_minimizing_move = Move::new(penguin_to_move, state.board.get_tile_id(1, 2).unwrap());
+        state.move_avatar_for_current_player(expected_minimizing_move);
+
+        // Third move should be player 1 (4, 0) to (3, 1)
+        // This is the "cornerstone" move of the game, in which player 1 guarantees a win
+        // We know now that the algorithm is not simply picking the move with the lowest row and column,
+        // because that move would be (2, 0) to (2, 2).
+        let penguin_to_move = state.find_penguin_at_position((4, 0).into()).unwrap().penguin_id;
+        move_penguin_minmax(&mut state, 20);
+        let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
+        let new_pos = state.board.get_tile_position(new_tile);
+        assert_eq!(new_pos, (3, 1).into());
     }
 }

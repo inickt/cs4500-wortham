@@ -117,10 +117,8 @@ impl Tile {
             // filter out directions without neighbors. For directions with neighbors,
             // return all neighbors in that direction.
             .filter_map(|direction| {
-                match self.get_neighbor(board, direction) {
-                    Some(neighbor) => Some(neighbor.all_reachable_tiles_in_direction(board, direction, occupied_tiles)),
-                    None => None
-                }
+                self.get_neighbor(board, direction).map(|neighbor|
+                    neighbor.all_reachable_tiles_in_direction(board, direction, occupied_tiles))
             })
             // Then collect all the tiles in each direction into a single Vec
             .fold(vec![], |mut all_tiles, mut tiles_in_direction| {
@@ -131,9 +129,10 @@ impl Tile {
 
     /// Helper function for all_reachable_tiles.
     /// Returns a Vec of all tiles reachable from a given direction, including self.
+    /// Returns empty vec if self is occupied.
     pub fn all_reachable_tiles_in_direction<'b>(&'b self, board: &'b Board, direction: Direction, occupied_tiles: &HashSet<TileId>) -> Vec<&'b Tile> {
         match self.get_neighbor(board, direction) {
-            Some(tile) if !occupied_tiles.contains(&tile.tile_id) => {
+            Some(tile) if !occupied_tiles.contains(&self.tile_id) => {
                 let mut reachable_tiles = tile.all_reachable_tiles_in_direction(board, direction, occupied_tiles);
                 reachable_tiles.push(self);
                 reachable_tiles
@@ -257,4 +256,11 @@ fn test_all_reachable_tiles() {
         &b.tiles[&TileId(3)],
     ];
     assert_eq!(tile_5.all_reachable_tiles(&b, &HashSet::new()), expected_reachable);
+
+    let expected_reachable_with_occupied = vec![
+        &b.tiles[&TileId(0)],
+        &b.tiles[&TileId(1)],
+        &b.tiles[&TileId(3)],
+    ];
+    assert_eq!(tile_5.all_reachable_tiles(&b, &vec![TileId(4)].into_iter().collect()), expected_reachable_with_occupied);
 }
