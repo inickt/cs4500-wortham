@@ -249,6 +249,21 @@ impl GameState {
     pub fn player_score(&self, player_id: PlayerId) -> usize {
         self.players[&player_id].score
     }
+
+    /// Returns true if the two tiles are adjacent or false if either tile is a hole.
+    pub fn tiles_are_adjacent(&self, tile1: TileId, tile2: TileId) -> bool {
+        match (self.get_tile(tile1), self.get_tile(tile2)) {
+            (Some(tile1), Some(tile2)) => {
+                tile1.north == Some(tile2.tile_id)
+                || tile1.northeast == Some(tile2.tile_id)
+                || tile1.southeast == Some(tile2.tile_id)
+                || tile1.south == Some(tile2.tile_id)
+                || tile1.southwest == Some(tile2.tile_id)
+                || tile1.northwest == Some(tile2.tile_id)
+            },
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]

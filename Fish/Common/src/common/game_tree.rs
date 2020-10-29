@@ -55,7 +55,7 @@ impl Game {
 
     /// Returns the `Game` that would be produced as a result of taking the given Move.
     /// If the move is invalid (not in valid_moves or self is `End`) then None is returned
-    fn get_game_after_move(&mut self, move_: Move) -> Option<&Game> {
+    pub fn get_game_after_move(&mut self, move_: Move) -> Option<&Game> {
         match self {
             Game::Turn { valid_moves, .. } => {
                 valid_moves.get_mut(&move_).map(|lazy_game| lazy_game.get_evaluated())

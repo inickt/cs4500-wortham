@@ -3,6 +3,8 @@
 //! they will also eventually be able to place penguins.
 use crate::common::penguin::PenguinId;
 use crate::common::tile::TileId;
+use crate::common::gamestate::GameState;
+use crate::common::boardposn::BoardPosn;
 
 /// A Move is the main action a player can take on their turn.
 /// It consists of a penguin to move and a tile to move it to.

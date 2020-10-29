@@ -86,7 +86,7 @@ impl Tile {
     }
 
     /// Given a Tile and a Direction, get the ID of the neighbor of the tile in that direction.
-    fn get_neighbor_id<'b>(&self, direction: Direction) -> Option<&TileId> {
+    pub fn get_neighbor_id<'b>(&self, direction: Direction) -> Option<&TileId> {
         match direction {
             Direction::Northeast => self.northeast.as_ref(),
             Direction::Northwest => self.northwest.as_ref(),
