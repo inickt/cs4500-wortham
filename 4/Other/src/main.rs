@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use serde_json::Deserializer;
 use serde::{ Serialize, Deserialize };
 
+use fish::common::action::Move;
 use fish::common::board::Board;
 use fish::common::direction::{ Direction, Direction::* };
 use fish::common::gamestate::GameState;
@@ -125,8 +126,9 @@ fn try_move_penguin(gamestate: &mut GameState, penguin_id: PenguinId, direction:
         false
     } else {
         let destination = reachable_tiles.last().unwrap().tile_id;
+        let action = Move::new(penguin_id, destination);
         // unwrap the result just to assert success since we know the tile is reachable
-        gamestate.move_avatar_for_player(gamestate.current_turn, penguin_id, destination).unwrap();
+        gamestate.move_avatar_for_current_player(action).unwrap();
         true
     }
 }
@@ -185,8 +187,7 @@ fn main() {
     let json = JSONPlayersAndBoard::from_reader(stdin.lock());
     let board = board_from_json(&json.board);
 
-    let gamestate = GameState::new(0, board, json.players.len());
-    let mut gamestate = gamestate.borrow_mut();
+    let mut gamestate = GameState::new(0, board, json.players.len());
 
     // Our colors are different, so we have to map PlayerId -> JSONColor
     // for use while reserializing the GameState to make sure it has the right order.
