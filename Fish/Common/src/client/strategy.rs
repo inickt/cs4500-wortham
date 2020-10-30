@@ -1,5 +1,5 @@
-/// This file contains code representing different strategies used by
-/// the player when playing the game.
+//! This file contains code representing different strategies used by
+//! the player when playing the game.
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::Game;
 use crate::common::player::PlayerId;
@@ -123,6 +123,8 @@ mod tests {
         let penguins_count = state.all_penguins().len();
         let first_player_id = state.current_player().player_id;
 
+        state.board.remove_tile(TileId(0)); // add a hole at tile 0
+
         let occupied_tiles_before_place = state.get_occupied_tiles();
         assert_eq!(occupied_tiles_before_place.len(), 0);
 
@@ -132,6 +134,10 @@ mod tests {
             for col in 0 .. state.board.width {
                 if penguins_placed >= penguins_count {
                     break; // stop iterating through potential locations if we've placed them all
+                }
+                if row == 0 && col == 0 {
+                    // hole at 0, 0 so don't try to place in order to keep row/col lined up
+                    continue;
                 }
 
                 let prev_player_id = state.current_player().player_id; // record prev player_id
