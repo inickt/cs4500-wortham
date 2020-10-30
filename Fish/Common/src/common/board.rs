@@ -153,6 +153,7 @@ impl Board {
     }
 
     /// Returns the TileId of the tile at tile_x, tile_y on this board
+    /// or None if it's a hole or out of bounds
     pub fn get_tile_id(&self, tile_x: u32, tile_y: u32) -> Option<TileId> {
         self.get_tile(tile_x, tile_y).map(|tile| tile.tile_id)
     }
