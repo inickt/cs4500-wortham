@@ -29,10 +29,11 @@ pub fn place_penguin_zigzag(state: &mut GameState) {
 
     for row in 0 .. state.board.height {
         for col in 0 .. state.board.width {
-            let tile_id = state.board.get_tile_id(col, row).unwrap();
-            if !occupied_tiles.contains(&tile_id) {
-                state.place_avatar_for_player(player_id, penguin_id, tile_id);
-                return;
+            if let Some(tile_id) = state.board.get_tile_id(col, row) {
+                if !occupied_tiles.contains(&tile_id) {
+                    state.place_avatar_for_player(player_id, penguin_id, tile_id);
+                    return;
+                }
             }
         }
     }
