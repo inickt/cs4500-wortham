@@ -12,6 +12,10 @@ use std::collections::HashMap;
 /// game at that point in time.
 /// Uses lazy evaluation to avoid storing the entire data structure
 /// in memory. See the LazyGame struct for more info.
+/// 
+/// Note that there is no case when a player is stuck; we simply
+/// skip their turn if they have no moves and move
+/// to the next Turn state.
 pub enum Game {
     Turn { state: GameState, valid_moves: HashMap<Move, LazyGame> },
     End(GameState),

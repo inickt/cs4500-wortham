@@ -117,6 +117,9 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
     }
 }
 
+/// Finds a move to a neighbor of first_player_tile
+/// in the order North, Northeast, Southeast, South, Southwest, Northwest
+/// and breaks ties by moving the penguin with the lowest row and column, in that order
 fn find_neighboring_move(game: &Game, first_player_tile: TileId) -> Option<Move> {
     let state = game.get_state();
     let moves = match game {
