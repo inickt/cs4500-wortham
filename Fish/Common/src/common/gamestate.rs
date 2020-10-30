@@ -39,6 +39,19 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// and sent to each client to deserialize to receive the updated game
 /// state each turn. The GameState is rendering-agnostic, so each
 /// client is free to render the GameState however it wishes.
+///
+/// Throughout the gamestate, unique ids are usually used over the objects
+/// they refer to so that we can (1) avoid excessive cloning from multiple mutable
+/// borrows, (2) serialize the data more easily and (3) enable the creation of
+/// external mappings on the server from e.g. PlayerId to some private data if needed.
+///
+/// - Each player's penguin is contained within the Player struct.
+/// - Each penguin struct contains either Some(TileId) if it is currently
+///   on a tile or None if it hasn't yet been placed.
+/// - Each Player is mapped from their unique PlayerId to the Player struct.
+/// - The ordering of players is given by the immutable turn_order. The current
+///   turn is given by current_turn which will change each time
+///   {place,move}_avatar_for_player is called.
 #[derive(Clone, Debug)]
 pub struct GameState {
     pub game_id: GameId,
