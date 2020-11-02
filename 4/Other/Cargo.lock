@@ -72,6 +72,8 @@ dependencies = [
  "gdk-pixbuf",
  "gio",
  "gtk",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

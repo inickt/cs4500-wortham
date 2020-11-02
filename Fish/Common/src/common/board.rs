@@ -12,6 +12,8 @@ use crate::common::tile::{ Tile, TileId };
 use crate::common::boardposn::BoardPosn;
 use std::collections::HashMap;
 
+use serde::{ Serialize, Deserialize };
+
 /// The fish game board is a mapping of tiles from their unique tile ids to
 /// their Tile representation. This is essentially a Graph of tiles where each
 /// tile is a node on the graph containing its adjacency list within. The Board
@@ -22,7 +24,7 @@ use std::collections::HashMap;
 /// are made and translated to/from board positions. It should be noted though
 /// that a tile's adjacency list is the preferred method for working on it within
 /// game rules validation code.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Board {
     pub tiles: HashMap<TileId, Tile>,
     pub width: u32,

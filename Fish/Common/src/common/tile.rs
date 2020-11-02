@@ -12,11 +12,13 @@ use std::fmt::Debug;
 use crate::common::direction::Direction;
 use crate::common::board::Board;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+use serde::{ Serialize, Deserialize };
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TileId(pub usize);
 
 /// Represents a single tile on the game board.
-#[derive(Clone, Eq)]
+#[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct Tile {
     /// A Tile's tile_id is it's unique index in the Board.tiles Vec
     pub tile_id: TileId,

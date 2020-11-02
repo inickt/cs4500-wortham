@@ -1,9 +1,9 @@
 //! This file contains code representing different strategies used by
 //! the player when playing the game.
 use crate::common::gamestate::GameState;
-use crate::common::game_tree::Game;
+use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerId;
-use crate::common::action::Move;
+use crate::common::action::{Placement, Move};
 use crate::common::util::{ all_min_by_key, all_max_by_key };
 
 use std::collections::HashMap;
@@ -21,18 +21,23 @@ use std::collections::HashMap;
 /// open spot.
 /// 
 /// This function panics if the current player has no unplaced penguins.
-pub fn place_penguin_zigzag(state: &mut GameState) {
+pub fn take_zigzag_placement(state: &mut GameState) {
     let player = state.current_player();
     let player_id = player.player_id;
     let penguin_id = player.get_unplaced_penguin_id().expect("All penguins are already placed");
+
+    let placement = find_zigzag_placement(state);
+    state.place_avatar_for_player(player_id, penguin_id, placement.tile_id);
+}
+
+pub fn find_zigzag_placement(state: &GameState) -> Placement {
     let occupied_tiles = state.get_occupied_tiles();
 
     for row in 0 .. state.board.height {
         for col in 0 .. state.board.width {
             if let Some(tile_id) = state.board.get_tile_id(col, row) {
                 if !occupied_tiles.contains(&tile_id) {
-                    state.place_avatar_for_player(player_id, penguin_id, tile_id);
-                    return;
+                    return Placement::new(tile_id);
                 }
             }
         }
@@ -41,17 +46,16 @@ pub fn place_penguin_zigzag(state: &mut GameState) {
     unreachable!("place_penguin_zigzag: cannot place penguin, all board positions are filled")
 }
 
-/// Makes a move to maximize the current player's score after looking ahead
-/// a given number of turns, assuming that other players will attempt to minimize
-/// the current player's score.
+/// Returns the move to maximize the current player's score after looking ahead
+/// a given number of rounds, assuming that other players will attempt to minimize
+/// the current player's score. A round is defined as starting with the given player
+/// then continuing until just before their next turn.
 /// 
 /// Panics if the game is already over.
-pub fn move_penguin_minmax(state: &mut GameState, lookahead: usize) {
-    let mut game = Game::new(state);
-    let (_, moves) = find_best_score_and_moves(&mut game, state.current_turn, lookahead);
-
-    let move_to_take = *moves.last().expect("The game is over, there are no valid moves!");
-    state.move_avatar_for_current_player(move_to_take).unwrap();
+pub fn find_minmax_move(game: &mut GameTree, lookahead: usize) -> Move {
+    let player_to_maximize_score = game.get_state().current_turn;
+    let (_, moves) = find_best_score_and_moves(game, player_to_maximize_score, lookahead);
+    *moves.last().expect("The game is over, there are no valid moves!")
 }
 
 /// Traverse the Game tree to find a set of moves that maximizes the score of the given player,
@@ -66,7 +70,7 @@ pub fn move_penguin_minmax(state: &mut GameState, lookahead: usize) {
 ///   node is given, whichever comes first.
 /// 
 /// See find_best_move for the specific algorithm used to select the best move.
-fn find_best_score_and_moves(game: &mut Game, player: PlayerId, lookahead: usize) -> (usize, Vec<Move>) {
+fn find_best_score_and_moves(game: &mut GameTree, player: PlayerId, lookahead: usize) -> (usize, Vec<Move>) {
     let is_players_turn = game.get_state().current_turn == player;
 
     if game.is_game_over() || (lookahead == 0 && is_players_turn) {
@@ -78,9 +82,8 @@ fn find_best_score_and_moves(game: &mut Game, player: PlayerId, lookahead: usize
 
         // Recurse first, getting the expected states after each possible move the current player can take
         // assuming the given player maximizes their score and all opponents minimize it.
-        let possible_moves = game.map(|state| {
-            let mut game_after_move = Game::new(state);
-            find_best_score_and_moves(&mut game_after_move, player, lookahead)
+        let possible_moves = game.map(|game_after_move| {
+            find_best_score_and_moves(game_after_move, player, lookahead)
         });
 
         // Maximize the score for the given player if it's their turn, otherwise take the move that minimizes it
@@ -143,7 +146,7 @@ mod tests {
                 let prev_player_id = state.current_player().player_id; // record prev player_id
                 let prev_occupied_tiles = state.get_occupied_tiles(); // record prev tiles w/ penguins
 
-                place_penguin_zigzag(&mut state); // place the penguin and count it
+                take_zigzag_placement(&mut state); // place the penguin and count it
                 penguins_placed += 1;
 
                 let post_occupied_tiles = state.get_occupied_tiles();
@@ -186,7 +189,7 @@ mod tests {
         let mut state = GameState::with_default_board(3, 5, 2);
 
         for _ in 0 .. state.all_penguins().len() {
-            place_penguin_zigzag(&mut state); // place all penguins using the zigzag method
+            take_zigzag_placement(&mut state); // place all penguins using the zigzag method
         }
 
         // placements of penguins (p1 = player1, p2 = player2)
@@ -200,7 +203,9 @@ mod tests {
         // and within that row, the lowest column, since the gain will be 3 for any move.
         let penguin_to_move = state.find_penguin_at_position((0, 0).into()).unwrap().penguin_id;
 
-        move_penguin_minmax(&mut state, 1);
+        let move_ = find_minmax_move(&mut GameTree::new(&state), 1);
+        state.move_avatar_for_current_player(move_);
+
         let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
         let new_pos = state.board.get_tile_position(new_tile);
         assert_eq!(new_pos, (0, 2).into());
@@ -213,7 +218,7 @@ mod tests {
         let mut state = GameState::with_default_board(3, 5, 2);
 
         for _ in 0 .. state.all_penguins().len() {
-            place_penguin_zigzag(&mut state); // place all penguins using the zigzag method
+            take_zigzag_placement(&mut state); // place all penguins using the zigzag method
         }
 
         // initial placements of penguins (p1 = player1, p2 = player2)
@@ -236,7 +241,8 @@ mod tests {
 
         // First move should be (0, 0) to (0, 2)
         let penguin_to_move = state.find_penguin_at_position((0, 0).into()).unwrap().penguin_id;
-        move_penguin_minmax(&mut state, 20);
+        let move_ = find_minmax_move(&mut GameTree::new(&state), 20);
+        state.move_avatar_for_current_player(move_);
         let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
         let new_pos = state.board.get_tile_position(new_tile);
         assert_eq!(new_pos, (0, 2).into());
@@ -251,7 +257,8 @@ mod tests {
         // We know now that the algorithm is not simply picking the move with the lowest row and column,
         // because that move would be (2, 0) to (2, 2).
         let penguin_to_move = state.find_penguin_at_position((4, 0).into()).unwrap().penguin_id;
-        move_penguin_minmax(&mut state, 20);
+        let move_ = find_minmax_move(&mut GameTree::new(&state), 20);
+        state.move_avatar_for_current_player(move_);
         let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
         let new_pos = state.board.get_tile_position(new_tile);
         assert_eq!(new_pos, (3, 1).into());

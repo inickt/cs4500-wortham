@@ -124,7 +124,7 @@ fn find_neighboring_move(game: &Game, first_player_tile: TileId) -> Option<Move>
     let state = game.get_state();
     let moves = match game {
         Game::Turn { valid_moves, .. } => valid_moves,
-        _ => unreachable!(),
+        _ => return None,
     };
 
     let moves = moves.into_iter().map(|(move_, _)| *move_);

@@ -9,14 +9,16 @@ use crate::common::util;
 use std::collections::HashSet;
 use std::sync::atomic::{ AtomicUsize, Ordering };
 
+use serde::{ Serialize, Deserialize };
+
 /// Amount of players generated in the current instance of this program.
 /// Used for setting unique PlayerIds for each player.
 static TOTAL_PLAYER_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlayerId(pub usize);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PlayerColor {
     Blue,
     Green,
@@ -39,7 +41,7 @@ impl PlayerColor {
 /// Represents an in-game player. Agnostic of the player's
 /// external information, like username, connection information,
 /// etc.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Player {
     pub player_id: PlayerId,
     pub penguins: Vec<Penguin>,

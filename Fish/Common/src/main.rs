@@ -2,8 +2,9 @@ mod client;
 mod common;
 
 use common::gamestate::GameState;
+use common::game_tree::GameTree;
 use common::board::Board;
-use client::strategy::{move_penguin_minmax, place_penguin_zigzag};
+use client::strategy::{ find_minmax_move, take_zigzag_placement };
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -16,10 +17,11 @@ fn main() {
     tile_ids.reverse();
 
     for (player_id, penguin_id) in state.all_penguins() {
-        place_penguin_zigzag(&mut state);
+        take_zigzag_placement(&mut state);
     }
 
-    move_penguin_minmax(&mut state, 1);
+    let move_ = find_minmax_move(&mut GameTree::new(&state), 1);
+    state.move_avatar_for_current_player(move_);
 
     let state = Rc::new(RefCell::new(state));
     client::show_ui(state);

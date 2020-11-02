@@ -10,6 +10,8 @@ gio = "0.8.0"
 cairo-rs = "0.8.0"
 gdk = "0.12.0"
 gdk-pixbuf = "0.8.0"
+serde = { version = "1.0.116", features = ["derive"] }
+serde_json = "1.0.57"
 
 # These two profiles optimize compilation for size.
 # They are necessary due to the limited amount of

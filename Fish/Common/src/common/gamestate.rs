@@ -17,13 +17,15 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use serde::{ Serialize, Deserialize };
+
 const MIN_PLAYERS_PER_GAME: usize = 2;
 const MAX_PLAYERS_PER_GAME: usize = 4;
 
 /// Each player receives 6 - player_count penguins to start the game
 const PENGUIN_FACTOR: usize = 6;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameId(usize);
 
 /// Rc<RefCell<T>> gives a copiable, mutable reference to its T
@@ -52,7 +54,7 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// - The ordering of players is given by the immutable turn_order. The current
 ///   turn is given by current_turn which will change each time
 ///   {place,move}_avatar_for_player is called.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameState {
     pub game_id: GameId,
     pub board: Board,
@@ -276,6 +278,12 @@ impl GameState {
             },
             _ => false,
         }
+    }
+
+    // Returns true if all penguins have a concrete position on the board.
+    // If this is false then we are still in the PlacePenguins phase of the game.
+    pub fn all_penguins_are_placed(&self) -> bool {
+        self.players.iter().all(|(_, player)| !player.has_unplaced_penguins())
     }
 }
 
