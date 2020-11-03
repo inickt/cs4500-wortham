@@ -166,10 +166,18 @@ impl<In: Read, Out: Write> InHousePlayer<In, Out> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[test]
     fn test_send_placement_message() {
+        let buffer = Vec::new();
+        let input  = "".as_bytes();
         
+        let mut player = InHousePlayer::new(input, buffer);
+
+        player.send_place_penguin_message(Placement::new(TileId(1))).unwrap();
+
+        assert_eq!(buffer, String::from("{\"type\":\"PlacePenguin\",\"tile_id\":1"))
     }
 
 }
