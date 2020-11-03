@@ -18,7 +18,7 @@ struct InHousePlayer<In: Read, Out: Write> {
     deserializer: Deserializer<IoRead<In>>,
 
     /// Stream through which the player may send messages to the referee.
-    output_stream: Out,
+    pub output_stream: Out,
     
     phase: GamePhase,
 }
@@ -167,17 +167,53 @@ impl<In: Read, Out: Write> InHousePlayer<In, Out> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::penguin::PenguinId;
+    use std::str;
+
+    fn buf_to_string(buf: &Vec<u8>) -> String {
+        std::str::from_utf8(buf.as_slice()).unwrap().into()
+    }
 
     #[test]
-    fn test_send_placement_message() {
+    fn test_send_place_penguin_message() {
         let buffer = Vec::new();
         let input  = "".as_bytes();
         
         let mut player = InHousePlayer::new(input, buffer);
 
         player.send_place_penguin_message(Placement::new(TileId(1))).unwrap();
+        let buffer = &player.output_stream;
 
-        assert_eq!(buffer, String::from("{\"type\":\"PlacePenguin\",\"tile_id\":1"))
+        assert_eq!(buf_to_string(buffer), String::from("{\"tile_id\":1,\"type\":\"PlacePenguin\"}"));
+
+        player.send_place_penguin_message(Placement::new(TileId(2))).unwrap();
+        let buffer = &player.output_stream;
+
+        assert_eq!(buf_to_string(buffer), String::from(
+            "{\"tile_id\":1,\"type\":\"PlacePenguin\"}{\"tile_id\":2,\"type\":\"PlacePenguin\"}"
+        ));
     }
 
+    #[test]
+    fn test_send_move_penguin_message() {
+        let buffer = Vec::new();
+        let input  = "".as_bytes();
+        
+        let mut player = InHousePlayer::new(input, buffer);
+
+        player.send_move_penguin_message(Move::new(PenguinId(1), TileId(1))).unwrap();
+        let buffer = &player.output_stream;
+
+        assert_eq!(buf_to_string(buffer), String::from(
+            "{\"penguin_id\":1,\"tile_id\":1,\"type\":\"MovePenguin\"}"
+        ));
+
+        player.send_move_penguin_message(Move::new(PenguinId(2), TileId(2))).unwrap();
+        let buffer = &player.output_stream;
+
+        assert_eq!(buf_to_string(buffer), String::from(
+            "{\"penguin_id\":1,\"tile_id\":1,\"type\":\"MovePenguin\"}\
+            {\"penguin_id\":2,\"tile_id\":2,\"type\":\"MovePenguin\"}"
+        ));
+    }
 }
