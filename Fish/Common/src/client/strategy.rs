@@ -8,6 +8,29 @@ use crate::common::util::{ all_min_by_key, all_max_by_key };
 
 use std::collections::HashMap;
 
+/// A Strategy is something that can be used to determine which placements
+/// or moves a player should take. Each strategy should ideally search through
+/// the given gamestate/gametree to find which placement or move works best.
+///
+/// In each case, rather than modifying the given gamestate/game tree, the
+/// strategy should just return the desired action without actually taking it.
+pub trait Strategy {
+    fn find_placement(&mut self, gamestate: &GameState) -> Placement;
+    fn find_move(&mut self, game: &mut GameTree) -> Move;
+}
+
+pub struct ZigZagMinMaxStrategy;
+
+impl Strategy for ZigZagMinMaxStrategy {
+    fn find_placement(&mut self, gamestate: &GameState) -> Placement {
+        find_zigzag_placement(gamestate)
+    }
+
+    fn find_move(&mut self, game: &mut GameTree) -> Move {
+        find_minmax_move(game, 2)
+    }
+}
+
 /// Places a penguin for the player whose turn it currently is 
 /// at the next available spot on the game board, according to
 /// the following zig-zag algorithm:

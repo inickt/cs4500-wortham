@@ -4,7 +4,7 @@ use crate::common::action::{ Move, Placement };
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::GameTree;
 use crate::common::tile::TileId;
-use crate::client::strategy;
+use crate::client::strategy::Strategy;
 
 use std::io::{ Read, Write };
 use std::mem::discriminant;
@@ -13,7 +13,7 @@ use serde::{ Serialize, Deserialize };
 use serde_json::{ Deserializer, de::IoRead, json };
 
 /// Represents the in-house AI player for the Fish game.
-struct InHousePlayer<In: Read, Out: Write> {
+struct InHousePlayer<In: Read, Out: Write, Strat: Strategy> {
     /// Stream from which the player receives data from the referee.
     deserializer: Deserializer<IoRead<In>>,
 
@@ -21,6 +21,9 @@ struct InHousePlayer<In: Read, Out: Write> {
     pub output_stream: Out,
     
     phase: GamePhase,
+
+    /// Used to determine which moves or placements the player should take.
+    strategy: Strat,
 }
 
 /// Represents the step of the Fish game protocol the game is on currently.
@@ -55,11 +58,11 @@ impl Default for GamePhase {
     }
 }
 
-impl<In: Read, Out: Write> InHousePlayer<In, Out> {
+impl<In: Read, Out: Write, Strat: Strategy> InHousePlayer<In, Out, Strat> {
     /// Creates a new AI player using the given streams.
-    pub fn new(input_stream: In, output_stream: Out) -> InHousePlayer<In, Out> {
+    pub fn new(input_stream: In, output_stream: Out, strategy: Strat) -> InHousePlayer<In, Out, Strat> {
         let deserializer = Deserializer::from_reader(input_stream);
-        InHousePlayer { deserializer, output_stream, phase: GamePhase::Starting }
+        InHousePlayer { deserializer, output_stream, strategy, phase: GamePhase::Starting }
     }
 
     /// Take a turn by sending a message to the output stream. The contents of the
@@ -70,11 +73,11 @@ impl<In: Read, Out: Write> InHousePlayer<In, Out> {
             // TODO: Should we panic when trying to take a turn in the Starting/Done phases?
             GamePhase::Starting => (),
             GamePhase::PlacingPenguins(gamestate) => {
-                let placement = strategy::find_zigzag_placement(gamestate);
+                let placement = self.strategy.find_placement(gamestate);
                 self.send_place_penguin_message(placement).unwrap();
             },
             GamePhase::MovingPenguins(gametree) => {
-                let move_ = strategy::find_minmax_move(gametree, 2);
+                let move_ = self.strategy.find_move(gametree);
                 self.send_move_penguin_message(move_).unwrap();
             },
             GamePhase::Done => (),
@@ -168,7 +171,7 @@ impl<In: Read, Out: Write> InHousePlayer<In, Out> {
 mod tests {
     use super::*;
     use crate::common::penguin::PenguinId;
-    use std::str;
+    use crate::client::strategy::ZigZagMinMaxStrategy;
 
     fn buf_to_string(buf: &Vec<u8>) -> String {
         std::str::from_utf8(buf.as_slice()).unwrap().into()
@@ -179,7 +182,7 @@ mod tests {
         let buffer = Vec::new();
         let input  = "".as_bytes();
         
-        let mut player = InHousePlayer::new(input, buffer);
+        let mut player = InHousePlayer::new(input, buffer, ZigZagMinMaxStrategy);
 
         player.send_place_penguin_message(Placement::new(TileId(1))).unwrap();
         let buffer = &player.output_stream;
@@ -199,7 +202,7 @@ mod tests {
         let buffer = Vec::new();
         let input  = "".as_bytes();
         
-        let mut player = InHousePlayer::new(input, buffer);
+        let mut player = InHousePlayer::new(input, buffer, ZigZagMinMaxStrategy);
 
         player.send_move_penguin_message(Move::new(PenguinId(1), TileId(1))).unwrap();
         let buffer = &player.output_stream;
