@@ -15,7 +15,7 @@ use serde_json::{ Deserializer, de::IoRead, json };
 /// Represents the in-house AI player for the Fish game.
 struct InHousePlayer<In: Read, Out: Write, Strat: Strategy> {
     /// Stream from which the player receives data from the referee.
-    deserializer: Deserializer<IoRead<In>>,
+    input_deserializer: Deserializer<IoRead<In>>,
 
     /// Stream through which the player may send messages to the referee.
     pub output_stream: Out,
@@ -61,8 +61,8 @@ impl Default for GamePhase {
 impl<In: Read, Out: Write, Strat: Strategy> InHousePlayer<In, Out, Strat> {
     /// Creates a new AI player using the given streams.
     pub fn new(input_stream: In, output_stream: Out, strategy: Strat) -> InHousePlayer<In, Out, Strat> {
-        let deserializer = Deserializer::from_reader(input_stream);
-        InHousePlayer { deserializer, output_stream, strategy, phase: GamePhase::Starting }
+        let input_deserializer = Deserializer::from_reader(input_stream);
+        InHousePlayer { input_deserializer, output_stream, strategy, phase: GamePhase::Starting }
     }
 
     /// Take a turn by sending a message to the output stream. The contents of the
@@ -129,7 +129,7 @@ impl<In: Read, Out: Write, Strat: Strategy> InHousePlayer<In, Out, Strat> {
             None
         } else {
             // TODO: Is there a better way to signal errors?
-            GameState::deserialize(&mut self.deserializer).ok()
+            GameState::deserialize(&mut self.input_deserializer).ok()
         }
     }
 
@@ -164,6 +164,7 @@ impl<In: Read, Out: Write, Strat: Strategy> InHousePlayer<In, Out, Strat> {
         }
         self.phase = GamePhase::MovingPenguins(GameTree::new(child_state));
     }
+
 }
 
 
@@ -172,6 +173,8 @@ mod tests {
     use super::*;
     use crate::common::penguin::PenguinId;
     use crate::client::strategy::ZigZagMinMaxStrategy;
+
+    // TODO 
 
     fn buf_to_string(buf: &Vec<u8>) -> String {
         std::str::from_utf8(buf.as_slice()).unwrap().into()

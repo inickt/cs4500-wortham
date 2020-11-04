@@ -1,5 +1,6 @@
 mod client;
 mod common;
+mod server;
 
 use common::gamestate::GameState;
 use common::game_tree::GameTree;
@@ -10,7 +11,7 @@ use std::cell::RefCell;
 
 fn main() {
     let board = Board::with_no_holes(3, 5, 3);
-    let mut state = GameState::new(2, board, 2);
+    let mut state = GameState::new(board, 2);
 
     let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
     tile_ids.sort();

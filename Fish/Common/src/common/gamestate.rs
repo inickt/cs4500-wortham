@@ -25,9 +25,6 @@ const MAX_PLAYERS_PER_GAME: usize = 4;
 /// Each player receives 6 - player_count penguins to start the game
 const PENGUIN_FACTOR: usize = 6;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GameId(usize);
-
 /// Rc<RefCell<T>> gives a copiable, mutable reference to its T
 ///
 /// This SharedGameState is a copiable, mutable pointer to the GameState
@@ -56,7 +53,6 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 ///   {place,move}_avatar_for_player is called.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameState {
-    pub game_id: GameId,
     pub board: Board,
     pub players: HashMap<PlayerId, Player>,
     pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game
@@ -68,7 +64,7 @@ pub struct GameState {
 impl GameState {
     /// Create a new SharedGameState with the given game id, board, and player_count.
     /// This will panic if player_count is < MIN_PLAYERS_PER_GAME or > MAX_PLAYERS_PER_GAME.
-    pub fn new(game_id: usize, board: Board, player_count: usize) -> GameState {
+    pub fn new(board: Board, player_count: usize) -> GameState {
         assert!(player_count >= MIN_PLAYERS_PER_GAME, "Fish must be played with at least {} players!", MIN_PLAYERS_PER_GAME);
         assert!(player_count <= MAX_PLAYERS_PER_GAME, "Fish only supports up to {} players!", MAX_PLAYERS_PER_GAME);
 
@@ -84,7 +80,6 @@ impl GameState {
         let current_turn = turn_order[0];
 
         GameState {
-            game_id: GameId(game_id),
             board,
             players,
             turn_order,
@@ -96,7 +91,7 @@ impl GameState {
 
     pub fn with_default_board(rows: u32, columns: u32, players: usize) -> GameState {
         let board = Board::with_no_holes(rows, columns, 3);
-        GameState::new(1, board, players)
+        GameState::new(board, players)
     }
 
     /// Places an unplaced avatar on a position on the board, and advances the turn. 
@@ -295,7 +290,7 @@ pub mod tests {
     #[test]
     fn test_new() {
         let board = Board::with_no_holes(3, 3, 3);
-        let gamestate = GameState::new(1, board, 4); // create game with 4 players
+        let gamestate = GameState::new(board, 4); // create game with 4 players
 
         assert_eq!(gamestate.players.len(), 4);
         // should have 6-n penguins per player
@@ -312,7 +307,7 @@ pub mod tests {
         // Can no players move when there's a penguin on the board, but holes blocking it in all directions?
         let holes = util::map_slice(&[(1, 1), (1, 0), (0, 1)], |pos| BoardPosn::from(*pos));
         let board_with_holes = Board::with_holes(2, 2, holes, 1);
-        let mut gamestate = GameState::new(1, board_with_holes, 4);
+        let mut gamestate = GameState::new(board_with_holes, 4);
         let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
         let penguin_id = player.penguins[0].penguin_id;
         assert!(!gamestate.can_any_player_move_penguin());
@@ -322,7 +317,7 @@ pub mod tests {
 
         // Can a player move when they have a penguin on the board with no holes blocking it?
         let board = Board::with_no_holes(3, 3, 3);
-        let mut gamestate = GameState::new(1, board, 4);
+        let mut gamestate = GameState::new(board, 4);
         let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
         let penguin_id = player.penguins[0].penguin_id;
         assert!(!gamestate.can_any_player_move_penguin());
@@ -334,7 +329,7 @@ pub mod tests {
         //    1(penguin)       3(hole)
         let holes = util::map_slice(&[(1, 1), (0, 0)], |pos| BoardPosn::from(*pos));
         let board_with_holes = Board::with_holes(2, 2, holes, 1);
-        let mut gamestate = GameState::new(1, board_with_holes, 4);
+        let mut gamestate = GameState::new(board_with_holes, 4);
         let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
         let penguin_id = player.penguins[0].penguin_id;
         let penguin_id_2 = player.penguins[1].penguin_id;
