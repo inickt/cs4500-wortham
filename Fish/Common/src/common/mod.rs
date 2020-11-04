@@ -9,6 +9,7 @@ pub mod board;
 pub mod boardposn;
 pub mod direction;
 pub mod gamestate;
+pub mod gamephase;
 pub mod penguin;
 pub mod player;
 pub mod tile;

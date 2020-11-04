@@ -7,8 +7,8 @@
 use crate::common::board::Board;
 use crate::common::tile::{ TileId, Tile };
 use crate::common::player::{ Player, PlayerId, PlayerColor };
-use crate::common::penguin::{Penguin, PenguinId};
-use crate::common::action::Move;
+use crate::common::penguin::{ Penguin, PenguinId };
+use crate::common::action::{ Move, Placement };
 use crate::common::boardposn::BoardPosn;
 use crate::common::util;
 
@@ -51,6 +51,7 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// - The ordering of players is given by the immutable turn_order. The current
 ///   turn is given by current_turn which will change each time
 ///   {place,move}_avatar_for_player is called.
+/// - A GameState's game is over if there is only one player left.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameState {
     pub board: Board,
@@ -89,6 +90,8 @@ impl GameState {
         }
     }
 
+    /// Creates a new gamestate with a board with a given number of rows and columns,
+    /// the given number of players, and no holes.
     pub fn with_default_board(rows: u32, columns: u32, players: usize) -> GameState {
         let board = Board::with_no_holes(rows, columns, 3);
         GameState::new(board, players)
@@ -111,6 +114,21 @@ impl GameState {
     pub fn place_avatar_without_changing_turn(&mut self, player: PlayerId, penguin: PenguinId, tile: TileId) -> Option<()> {
         let player = self.players.get_mut(&player)?; 
         player.place_penguin(penguin, tile, &self.board)
+    }
+
+    /// Places an unplaced avatar on the given placement on the board, and advances the turn. 
+    /// Returns Some(()) on success, or None if the player makes an invalid placement.
+    /// An invalid placement is one of:
+    /// 1. Placement on an invalid position (either out of bounds or a hole)
+    /// 2. Placement when the players' avatars are already placed
+    /// 
+    /// This function will choose which penguin to place for the current player, so it is
+    /// impossible for the player to place a penguin that is not theirs.
+    pub fn place_avatar_for_current_player(&mut self, placement: Placement) -> Option<()> {
+        let penguin = self.current_player().get_unplaced_penguin_id()?;
+        self.place_avatar_without_changing_turn(self.current_turn, penguin, placement.tile_id)?;
+        self.advance_turn();
+        Some(())
     }
 
     /// Moves a placed avatar from one position to another on the board,
@@ -205,7 +223,7 @@ impl GameState {
     /// Get a penguin at a position, None if no penguin at that position
     pub fn find_penguin_at_position(&self, posn: BoardPosn) -> Option<&Penguin> {
         let tile = self.board.get_tile(posn.x, posn.y)?;
-        self.players.iter().find_map(|(&player_id, player)| {
+        self.players.iter().find_map(|(_, player)| {
             player.penguins.iter().find(|penguin| {
                 match penguin.tile_id {
                     Some(tile_id) => tile_id == tile.tile_id,
@@ -225,8 +243,10 @@ impl GameState {
         self.players.get(&self.current_turn).unwrap()
     }
 
+    /// Is this game over? We define a game to be "over" if either
+    /// some players have won, or there are no players left in the game.
     pub fn is_game_over(&self) -> bool {
-        let game_over = !self.winning_players.is_empty();
+        let game_over = !self.winning_players.is_empty() || self.players.len() <= 1;
         assert_ne!(self.can_any_player_move_penguin(), game_over);
         game_over
     }
@@ -256,6 +276,13 @@ impl GameState {
         self.current_turn = self.turn_order[next_turn_index];
     }
 
+    /// Sets the turn of the game to the previous player's turn, used when removing a player.
+    fn previous_turn_index(&mut self) {
+        let current_turn_index = self.turn_order.iter().position(|id| id == &self.current_turn).unwrap();
+        let prev_turn_index = (current_turn_index - 1) % self.turn_order.len();
+        self.current_turn = self.turn_order[prev_turn_index];
+    }
+
     pub fn player_score(&self, player_id: PlayerId) -> usize {
         self.players[&player_id].score
     }
@@ -279,6 +306,28 @@ impl GameState {
     // If this is false then we are still in the PlacePenguins phase of the game.
     pub fn all_penguins_are_placed(&self) -> bool {
         self.players.iter().all(|(_, player)| !player.has_unplaced_penguins())
+    }
+
+    /// Removes a player and its penguins from this game
+    pub fn remove_player(&mut self, player_id: PlayerId) {
+        if !self.is_game_over() {
+            let should_advance_turn = self.current_turn == player_id;
+
+            // Prepare to advance the current turn past the to-be-removed player
+            if should_advance_turn {
+                self.previous_turn_index();
+            }
+
+            self.players.remove(&player_id);
+            self.turn_order.retain(|id| *id != player_id);
+
+            // Now actually advance the turn after the player is removed to properly
+            // handle the case where we skip the turns of possibly multiple players
+            // whose penguins are all stuck.
+            if should_advance_turn {
+                self.advance_turn();
+            }
+        }
     }
 }
 

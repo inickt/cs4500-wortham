@@ -47,8 +47,11 @@ impl Placement {
 }
 
 /// Represents any action a player may take on their turn.
+/// 
+/// Used for serializing and deserializing player actions for
+/// communicating with the server.
 #[derive(Serialize, Deserialize)]
 pub enum Action {
     PlacePenguin(Placement),
-    MovePenguin(Move),
+    MovePenguin(Move)
 }

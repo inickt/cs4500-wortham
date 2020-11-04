@@ -34,8 +34,9 @@ sent this message. If the placement is invalid, that player will be kicked from 
 game and have all their penguins removed.
 ```json
 {
-    "type": "PlacePenguin",
-    "tile_id": number
+    "PlacePenguin": {
+        "tile_id": number
+    }
 }
 ```
 
@@ -48,9 +49,10 @@ sent this message. If the move is invalid, that player will be kicked from the
 game and have all their penguins removed.
 ```json
 {
-    "type": "MovePenguin",
-    "penguin_id": number,
-    "next_tile_id": number
+    "MovePenguin": {
+        "penguin_id": number,
+        "tile_id": number
+    }
 }
 ```
 
