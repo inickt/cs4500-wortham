@@ -51,6 +51,9 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// - The ordering of players is given by the immutable turn_order. The current
 ///   turn is given by current_turn which will change each time
 ///   {place,move}_avatar_for_player is called.
+/// - The GameState's current_turn player should never be stuck, unless
+///   the game is over, i.e. current_player should always have moves.
+///   Players' turns will be skipped in turn_order if they cannot move anymore.
 /// - A GameState's game is over if there is only one player left.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameState {
@@ -252,7 +255,11 @@ impl GameState {
     }
 
     /// Advance the turn of this game to the next player's turn
-    /// Will mutate this game's current_turn field
+    /// Will mutate this game's current_turn field.
+    /// 
+    /// Note that this will skip the turn of any player who cannot
+    /// move any penguins. It is an invalid game state for the current
+    /// turn to be a player who cannot move any penguins.
     pub fn advance_turn(&mut self) {
         self.advance_turn_index();
 

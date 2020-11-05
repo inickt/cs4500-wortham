@@ -89,14 +89,8 @@ fn main() {
     let stdin = std::io::stdin();
     let json: serde_json::Value = serde_json::from_reader(stdin.lock()).unwrap();
 
-    let (depth, json_state): (usize, JSONState) = {
-        if let serde_json::Value::Array(mut values) = json {
-            (serde_json::from_value(values.remove(0)).unwrap(),
-             serde_json::from_value(values.remove(0)).unwrap())
-        } else {
-            unreachable!();
-        }
-    };
+    let depth: usize = serde_json::from_value(json[0].clone()).unwrap();
+    let json_state: JSONState = serde_json::from_value(json[1].clone()).unwrap();
 
     let board = board_from_json(&json_state.board);
     let mut gamestate = GameState::new(board, json_state.players.len());
