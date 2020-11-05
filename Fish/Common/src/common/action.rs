@@ -55,3 +55,19 @@ pub enum Action {
     PlacePenguin(Placement),
     MovePenguin(Move)
 }
+
+impl Action {
+    pub fn as_placement(self) -> Option<Placement> {
+        match self {
+            Action::PlacePenguin(placement) => Some(placement),
+            _ => None,
+        }
+    }
+
+    pub fn as_move(self) -> Option<Move> {
+        match self {
+            Action::MovePenguin(move_) => Some(move_),
+            _ => None,
+        }
+    }
+}
