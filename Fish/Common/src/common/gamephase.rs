@@ -59,6 +59,17 @@ impl GamePhase {
         }
     }
 
+    /// Takes the state of this GamePhase. Panics if called
+    /// on a Starting phase that has o state.
+    pub fn take_state(self) -> GameState {
+        match self {
+            GamePhase::Starting => panic!("Tried to get the state of a Starting GamePhase."),
+            GamePhase::PlacingPenguins(state) => state,
+            GamePhase::MovingPenguins(tree) => tree.take_state(),
+            GamePhase::Done(state) => state,
+        }
+    }
+
     /// Returns whose turn it currently is for the current GamePhase.
     /// This will panic if the game has not started yet.
     pub fn current_turn(&self) -> PlayerId {

@@ -65,6 +65,14 @@ impl GameTree {
         }
     }
 
+    /// Returns the GameState of the current node of the GameTree
+    pub fn take_state(self) -> GameState {
+        match self {
+            GameTree::Turn { state, .. } => state,
+            GameTree::End(state) => state,
+        }
+    }
+
     /// Returns the `Game` that would be produced as a result of taking the given Move.
     /// If the move is invalid (not in valid_moves or self is `End`) then None is returned
     pub fn get_game_after_move(&mut self, move_: Move) -> Option<&mut GameTree> {

@@ -4,9 +4,13 @@ use crate::common::action::Action;
 
 use serde::Deserialize;
 
+/// The server representation of a game client. There are 1 of
+/// these per-player in a game and they are used to receive or
+/// send messages between the server and that player through json.
 pub enum Client {
     Remote(PlayerConnection),
     InHouseAI(InHousePlayer),
+    Kicked,
 }
 
 impl Client {
@@ -23,7 +27,8 @@ impl Client {
             Client::InHouseAI(ai) => {
                 ai.take_turn();
                 serde_json::from_str(&mut ai.output_stream).ok()
-            }
+            },
+            Client::Kicked => None,
         }
     }
 
@@ -44,6 +49,14 @@ impl Client {
                 ai.receive_gamestate(message);
                 Ok(message.len())
             },
+            Client::Kicked => Ok(0),
+        }
+    }
+
+    pub fn is_kicked(&self) -> bool {
+        match self {
+            Client::Kicked => true,
+            _ => false,
         }
     }
 }

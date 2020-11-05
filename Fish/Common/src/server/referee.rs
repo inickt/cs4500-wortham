@@ -11,7 +11,7 @@ use crate::common::player::PlayerId;
 
 use crate::server::serverplayer::Client;
 
-use std::collections::HashMap;
+use std::collections::{ HashMap, HashSet };
 
 /// A referee is in charge of starting, running, and managing a game of fish.
 /// This entails looping until the game is over and on each turn sending the
@@ -22,10 +22,29 @@ use std::collections::HashMap;
 /// There is expected to be 1 referee per game of fish.
 struct Referee {
     /// Client input/output stream data, indexed on GameState's PlayerId
-    players: HashMap<PlayerId, Client>,
+    players: Vec<(PlayerId, Client)>,
 
     /// The state of current game, separated by the current phase it is in.
     phase: GamePhase,
+}
+
+pub struct GameResult {
+    /// This list is in the same order and of the same length
+    /// as the Referee's original players list. So, each entry
+    /// directly corresponds to the game outcome for a particular player.
+    final_players: Vec<ClientStatus>,
+
+    /// This is the final state of the game, which may be used to delve
+    /// into statistics detail about each player, such as their score
+    /// and end positions.
+    pub final_state: GameState
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ClientStatus {
+    Won,
+    Lost,
+    Kicked
 }
 
 /// Runs a complete game of Fish, setting up the board and
@@ -34,7 +53,7 @@ struct Referee {
 /// for more information on the Fish game.
 /// 
 /// Returns the winning players of the game
-pub fn run_game(players: Vec<Client>, board: Option<Board>) -> GameState {
+pub fn run_game(players: Vec<Client>, board: Option<Board>) -> GameResult {
     let board = board.unwrap_or(Board::with_no_holes(5, 5, 3));
     let mut referee = Referee::new(players, board);
 
@@ -43,7 +62,7 @@ pub fn run_game(players: Vec<Client>, board: Option<Board>) -> GameState {
         referee.do_player_turn();
     }
 
-    referee.phase.get_state().clone()
+    referee.get_game_result()
 }
 
 impl Referee {
@@ -52,6 +71,32 @@ impl Referee {
         let players = state.turn_order.iter().copied().zip(players.into_iter()).collect();
         let phase = GamePhase::PlacingPenguins(state);
         Referee { players, phase }
+    }
+
+    /// Returns the winners, losers, and kicked players of the game, along
+    /// with the final game state of the game.
+    /// 
+    /// Assumes that the game this referee was hosting has been played to
+    /// completion - otherwise no winners will be returned.
+    fn get_game_result(self) -> GameResult {
+        let Referee { players, phase } = self;
+
+        let final_players = players.into_iter().map(|(id, client)| {
+            if client.is_kicked() {
+                ClientStatus::Kicked
+            } else if phase.get_state().winning_players.as_ref()
+                    .map_or(false, |winning_players| winning_players.contains(&id)) {
+
+                ClientStatus::Won
+            } else {
+                ClientStatus::Lost
+            }
+        }).collect();
+
+        GameResult {
+            final_state: phase.take_state(),
+            final_players
+        }
     }
     
     /// Sends the serialized gamestate to each output stream in self.players
@@ -125,7 +170,8 @@ impl Referee {
 
     /// Retrieves the Action of the player whose turn it currently is.
     fn get_player_action(&mut self) -> Option<Action> {
-        let current_player = self.players.get_mut(&self.phase.current_turn())?;
+        let current_player_id = &self.phase.current_turn();
+        let current_player = &mut self.players.iter_mut().find(|(id, _)| id == current_player_id)?.1;
         current_player.get_action()
     }
 
@@ -134,9 +180,12 @@ impl Referee {
     /// they were kicked.
     fn kick_player(&mut self, player: PlayerId) {
         self.phase.get_state_mut().remove_player(player);
-        self.players.remove(&player);
+        self.players.iter_mut()
+            .find(|(id, _)| *id == player)
+            .map(|(_, client)| *client = Client::Kicked);
 
-        if self.players.is_empty() {
+        // The game ends early if all players are kicked
+        if self.players.iter().all(|(_, client)| client.is_kicked()) {
             self.phase = GamePhase::Done(self.phase.get_state().clone());
         }
     }
@@ -175,6 +224,7 @@ impl Referee {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::ClientStatus::*;
     use crate::client::player::InHousePlayer;
     use crate::client::strategy::Strategy;
     use crate::common::action::{ Move, Placement };
@@ -184,11 +234,11 @@ mod tests {
     pub struct CheatingStrategy;
 
     impl Strategy for CheatingStrategy {
-        fn find_placement(&mut self, gamestate: &GameState) -> Placement {
+        fn find_placement(&mut self, _gamestate: &GameState) -> Placement {
             Placement::new(TileId(0))
         }
 
-        fn find_move(&mut self, game: &mut GameTree) -> Move {
+        fn find_move(&mut self, _game: &mut GameTree) -> Move {
             Move::new(PenguinId(0), TileId(0))
         }
     }
@@ -197,7 +247,7 @@ mod tests {
     /// turns. For more info on this specific game, see the explanation in
     /// client/strategy.rs, fn test_move_penguin_minmax_lookahead
     #[test]
-    fn test_run_game_normal() {
+    fn run_game_normal() {
         // set up players
         let players = vec![
             Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
@@ -205,9 +255,9 @@ mod tests {
         ];
 
         let board = Board::with_no_holes(3, 5, 1);
-        let result = dbg!(run_game(players, Some(board)));
-        assert!(result.is_game_over());
-        // TODO ASSERT FIRST PLAYER WINS
+        let result = run_game(players, Some(board));
+        assert!(result.final_state.is_game_over());
+        assert_eq!(result.final_players, vec![Won, Lost]);
     }
 
     // Test a game with multiple winners
@@ -216,23 +266,36 @@ mod tests {
     /// and one who plays the normal minmax strategy and should thus win.
     /// It runs the same game twice, each time with cheaters in different positions
     /// in the turn order.
-    fn test_run_game_cheater() {
+    #[test]
+    fn run_game_cheater() {
         let players_cheater_second = vec![
             Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
             Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
         ];
         
         let result = run_game(players_cheater_second, None);
-        assert!(result.is_game_over());
-        // TODO ASSERT FIRST PLAYER WINS
+        assert_eq!(result.final_players, vec![Won, Kicked]);
+    }
 
-
+    #[test]
+    fn run_game_two_cheaters() {
         let players_cheater_first = vec![
             Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
             Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
         ];
         let result = run_game(players_cheater_first, None);
-        assert!(result.is_game_over());
-        // TODO ASSERT SECOND PLAYER WINS
+        assert_eq!(result.final_players, vec![Kicked, Won, Kicked]);
+    }
+
+    #[test]
+    fn run_game_all_cheating_players() {
+        let players_cheater_first = vec![
+            Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+            Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+            Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+        ];
+        let result = run_game(players_cheater_first, None);
+        assert_eq!(result.final_players, vec![Kicked, Kicked, Kicked]);
     }
 }

@@ -62,7 +62,7 @@ pub struct GameState {
     pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game
     pub current_turn: PlayerId,
     pub spectator_count: usize, // simple count so that players can see their audience size
-    pub winning_players: Vec<PlayerId>, // will be empty until the game ends
+    pub winning_players: Option<Vec<PlayerId>>, // will be None until the game ends
 }
 
 impl GameState {
@@ -89,7 +89,7 @@ impl GameState {
             turn_order,
             current_turn,
             spectator_count: 0,
-            winning_players: vec![],
+            winning_players: None,
         }
     }
 
@@ -115,8 +115,14 @@ impl GameState {
     /// Place a player's avatar but don't change whose turn it is.
     /// This is useful to more easily place avatars in bulk during testing.
     pub fn place_avatar_without_changing_turn(&mut self, player: PlayerId, penguin: PenguinId, tile: TileId) -> Option<()> {
-        let player = self.players.get_mut(&player)?; 
-        player.place_penguin(penguin, tile, &self.board)
+        let occupied_tiles = self.get_occupied_tiles();
+        
+        if occupied_tiles.contains(&tile) {
+            None
+        } else {
+            let player = self.players.get_mut(&player)?; 
+            player.place_penguin(penguin, tile, &self.board)
+        }
     }
 
     /// Places an unplaced avatar on the given placement on the board, and advances the turn. 
@@ -202,7 +208,7 @@ impl GameState {
         penguins_to_move.iter().flat_map(|penguin| {
             // penguins in Games are placed, so should always be Some
             let starting_tile_id = penguin.tile_id.expect(&format!("Penguin {:?} was not placed!", penguin.penguin_id)); 
-            let starting_tile = self.get_tile(starting_tile_id).unwrap();
+            let starting_tile = self.get_tile(starting_tile_id).expect("A penguin is placed on a hole");
             let penguin_id = penguin.penguin_id;
 
             starting_tile.all_reachable_tiles(&self.board, &occupied_tiles)
@@ -249,7 +255,7 @@ impl GameState {
     /// Is this game over? We define a game to be "over" if either
     /// some players have won, or there are no players left in the game.
     pub fn is_game_over(&self) -> bool {
-        let game_over = !self.winning_players.is_empty() || self.players.len() <= 1;
+        let game_over = self.winning_players.is_some() || self.players.is_empty();
         assert_ne!(self.can_any_player_move_penguin(), game_over);
         game_over
     }
@@ -272,21 +278,28 @@ impl GameState {
         }
 
         // No players have any moves left, find the winning players by those with the maximum score
-        self.winning_players = util::all_max_by_key(self.players.iter(), |(_, player)| player.score)
-            .map(|(id, _)| *id).collect();
+        self.winning_players = Some(util::all_max_by_key(self.players.iter(), |(_, player)| player.score)
+            .map(|(id, _)| *id).collect());
     }
 
     /// Sets the turn of this game to the next player in order
     fn advance_turn_index(&mut self) {
-        let current_turn_index = self.turn_order.iter().position(|id| id == &self.current_turn).unwrap();
-        let next_turn_index = (current_turn_index + 1) % self.turn_order.len();
-        self.current_turn = self.turn_order[next_turn_index];
+        if !self.turn_order.is_empty() {
+            let current_turn_index = self.turn_order.iter().position(|id| id == &self.current_turn).unwrap();
+            let next_turn_index = (current_turn_index + 1) % self.turn_order.len();
+            self.current_turn = self.turn_order[next_turn_index];
+        }
     }
 
     /// Sets the turn of the game to the previous player's turn, used when removing a player.
     fn previous_turn_index(&mut self) {
-        let current_turn_index = self.turn_order.iter().position(|id| id == &self.current_turn).unwrap();
-        let prev_turn_index = (current_turn_index - 1) % self.turn_order.len();
+        let current_turn_index = self.turn_order.iter()
+            .position(|id| id == &self.current_turn).unwrap();
+        let prev_turn_index = if current_turn_index == 0 {
+            self.turn_order.len().saturating_sub(1)
+        } else {
+            (current_turn_index - 1) % self.turn_order.len()
+        };
         self.current_turn = self.turn_order[prev_turn_index];
     }
 
@@ -355,7 +368,7 @@ pub mod tests {
         // does turn_order contain each of the players' ids exactly once?
         assert_eq!(gamestate.turn_order.len(), gamestate.players.len());
         assert!(gamestate.players.iter().all(|(id, _)| gamestate.turn_order.contains(id)), "{:?},\nturns={:?}", gamestate.players, gamestate.turn_order);
-        assert!(gamestate.winning_players.is_empty()); // no winners yet
+        assert!(gamestate.winning_players.is_none()); // no winners yet
     }
 
     #[test]

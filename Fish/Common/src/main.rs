@@ -17,8 +17,8 @@ fn main() {
     ];
 
     let board = Board::with_no_holes(5, 3, 1);
-    let state = run_game(players, Some(board));
+    let result = run_game(players, Some(board));
 
-    let state = Rc::new(RefCell::new(state));
+    let state = Rc::new(RefCell::new(result.final_state));
     client::show_ui(state);
 }
