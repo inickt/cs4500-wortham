@@ -1,88 +1,30 @@
 //! This file contains all logic and data regarding the Referee component,
-//! which runs complete games of Fish.
-use crate::common::action::{ Action, Move, Placement };
+//! which runs complete games of Fish. To do this, it starts and runs the
+//! game loop, sending the gamestate to all players each turn then retrieving
+//! a player's move and validating it until the game is over.
+use crate::common::action::Action;
 use crate::common::board::Board;
 use crate::common::gamestate::GameState;
 use crate::common::gamephase::GamePhase;
 use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerId;
 
-use crate::client::player::InHousePlayer;
+use crate::server::serverplayer::Client;
 
-use serde::Deserialize;
-use serde_json::{ Deserializer, de::IoRead };
-
-use std::io::{ Read, Write };
 use std::collections::HashMap;
 
-/// Cases to implement: 
-/// - timeout
-/// - 
-pub struct PlayerConnection {
-    input_deserializer: Deserializer<IoRead<Box<dyn Read>>>,
-    output_stream: Box<dyn Write>,
-}
-
-impl PlayerConnection {
-    pub fn new(input_stream: Box<dyn Read>, output_stream: Box<dyn Write>) -> PlayerConnection {
-        let input_deserializer = Deserializer::from_reader(input_stream);
-        PlayerConnection {
-            input_deserializer,
-            output_stream
-        }
-    }
-}
-
-pub enum Player {
-    Remote(PlayerConnection),
-    InHouseAI(InHousePlayer),
-}
-
-impl Player {
-    /// Get an action of the given player, either waiting for a remote player
-    /// or prompting an ai player to take a turn.
-    /// 
-    /// TODO: Add 1 minute timeout for remote players
-    pub fn get_action(&mut self) -> Option<Action> {
-        match self {
-            Player::Remote(connection) => {
-                // Wait for the player to send their Action
-                Action::deserialize(&mut connection.input_deserializer).ok()
-            },
-            Player::InHouseAI(ai) => {
-                ai.take_turn();
-                serde_json::from_str(&mut ai.output_stream).ok()
-            }
-        }
-    }
-
-    /// Send a message to the player's input stream.
-    /// 
-    /// Since the possible server message to a player is that containing
-    /// the current gamestate, it is expected the contents of this message
-    /// contains the serialized gamestate.
-    /// 
-    /// Returns Ok(num_bytes_written) or otherwise returns an io error if
-    /// the stream could not be written to.
-    pub fn send(&mut self, message: &[u8]) -> Result<usize, std::io::Error> {
-        match self {
-            Player::Remote(connection) => {
-                connection.output_stream.write(message)
-            },
-            Player::InHouseAI(ai) => { 
-                ai.receive_gamestate(message);
-                Ok(message.len())
-            },
-        }
-    }
-}
-
-/// ????
+/// A referee is in charge of starting, running, and managing a game of fish.
+/// This entails looping until the game is over and on each turn sending the
+/// full gamestate to all player's then getting the action of the current
+/// player and validating it. If this action is invalid the player is kicked,
+/// otherwise the placement/move is made.
+///
+/// There is expected to be 1 referee per game of fish.
 struct Referee {
-    /// Player input/output stream data, indexed on GameState's PlayerId
-    players: HashMap<PlayerId, Player>,
+    /// Client input/output stream data, indexed on GameState's PlayerId
+    players: HashMap<PlayerId, Client>,
 
-    /// State of current game
+    /// The state of current game, separated by the current phase it is in.
     phase: GamePhase,
 }
 
@@ -92,7 +34,7 @@ struct Referee {
 /// for more information on the Fish game.
 /// 
 /// Returns the winning players of the game
-pub fn run_game(players: Vec<Player>, board: Option<Board>) -> GameState {
+pub fn run_game(players: Vec<Client>, board: Option<Board>) -> GameState {
     let board = board.unwrap_or(Board::with_no_holes(5, 5, 3));
     let mut referee = Referee::new(players, board);
 
@@ -101,11 +43,11 @@ pub fn run_game(players: Vec<Player>, board: Option<Board>) -> GameState {
         referee.do_player_turn();
     }
 
-    referee.phase.get_state().clone() //.winning_players.clone()
+    referee.phase.get_state().clone()
 }
 
 impl Referee {
-    fn new(players: Vec<Player>, board: Board) -> Referee {
+    fn new(players: Vec<Client>, board: Board) -> Referee {
         let state = GameState::new(board, players.len());
         let players = state.turn_order.iter().copied().zip(players.into_iter()).collect();
         let phase = GamePhase::PlacingPenguins(state);
@@ -154,11 +96,7 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_placement(&mut self) -> Option<()> {
-        let current_player = self.players.get_mut(&self.phase.current_turn())?;
-        let placement = match current_player.get_action()? {
-            Action::PlacePenguin(placement) => Some(placement),
-            Action::MovePenguin(_) => None,
-        }?;
+        let placement = self.get_player_action()?.as_placement()?;
 
         match &mut self.phase {
             GamePhase::PlacingPenguins(gamestate) => gamestate.place_avatar_for_current_player(placement),
@@ -172,11 +110,7 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
-        let current_player = self.players.get_mut(&self.phase.current_turn())?;
-        let move_ = match current_player.get_action()? {
-            Action::MovePenguin(move_) => Some(move_),
-            Action::PlacePenguin(_) => None
-        }?;
+        let move_ = self.get_player_action()?.as_move()?;
 
         match &mut self.phase {
             GamePhase::MovingPenguins(gametree) => {
@@ -187,6 +121,12 @@ impl Referee {
             },
             _ => unreachable!("do_player_move called outside of the MovingPenguins phase"),
         }
+    }
+
+    /// Retrieves the Action of the player whose turn it currently is.
+    fn get_player_action(&mut self) -> Option<Action> {
+        let current_player = self.players.get_mut(&self.phase.current_turn())?;
+        current_player.get_action()
     }
 
     /// Kick the given player from the game, removing all their penguins and
@@ -237,6 +177,7 @@ mod tests {
     use super::*;
     use crate::client::player::InHousePlayer;
     use crate::client::strategy::Strategy;
+    use crate::common::action::{ Move, Placement };
     use crate::common::tile::TileId;
     use crate::common::penguin::PenguinId;
 
@@ -259,8 +200,8 @@ mod tests {
     fn test_run_game_normal() {
         // set up players
         let players = vec![
-            Player::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-            Player::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
         ];
 
         let board = Board::with_no_holes(3, 5, 1);
@@ -277,8 +218,8 @@ mod tests {
     /// in the turn order.
     fn test_run_game_cheater() {
         let players_cheater_second = vec![
-            Player::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-            Player::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
         ];
         
         let result = run_game(players_cheater_second, None);
@@ -287,8 +228,8 @@ mod tests {
 
 
         let players_cheater_first = vec![
-            Player::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
-            Player::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
         ];
         let result = run_game(players_cheater_first, None);
         assert!(result.is_game_over());
