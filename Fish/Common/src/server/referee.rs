@@ -11,8 +11,6 @@ use crate::common::player::PlayerId;
 
 use crate::server::serverplayer::Client;
 
-use std::collections::{ HashMap, HashSet };
-
 /// A referee is in charge of starting, running, and managing a game of fish.
 /// This entails looping until the game is over and on each turn sending the
 /// full gamestate to all player's then getting the action of the current
@@ -20,6 +18,12 @@ use std::collections::{ HashMap, HashSet };
 /// otherwise the placement/move is made.
 ///
 /// There is expected to be 1 referee per game of fish.
+/// 
+/// The referee will kick players who do any of the following: 
+/// 1. Send a well-formed but illegal placement to the referee
+/// 2. Send a well-formed but illegal move to the referee
+/// 3. Send non-well-formed JSON data to the Referee
+/// 4. [Future] Take more than 30 seconds to send their move on their turn
 struct Referee {
     /// Client input/output stream data, indexed on GameState's PlayerId
     players: Vec<(PlayerId, Client)>,
@@ -28,6 +32,8 @@ struct Referee {
     phase: GamePhase,
 }
 
+/// The final GameState of a finished game, along with each player and
+/// whether they won, lost, or were kicked.
 pub struct GameResult {
     /// This list is in the same order and of the same length
     /// as the Referee's original players list. So, each entry
@@ -260,7 +266,36 @@ mod tests {
         assert_eq!(result.final_players, vec![Won, Lost]);
     }
 
-    // Test a game with multiple winners
+    /// Runs a game that should start with no possible player moves, although
+    /// they can each place all of their penguins.
+    #[test]
+    fn run_game_initially_over() {
+        // set up players
+        let players = vec![
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+        ];
+
+        let board = Board::with_no_holes(2, 4, 1);
+        let result = run_game(players, Some(board));
+        assert!(result.final_state.is_game_over());
+        assert_eq!(result.final_players, vec![Won, Won]);
+    }
+
+    // Runs a game that should end with both players winning.
+    #[test]
+    fn run_game_both_players_win() {
+        // set up players
+        let players = vec![
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+        ];
+
+        let board = Board::with_no_holes(4, 4, 1);
+        let result = run_game(players, Some(board));
+        assert!(result.final_state.is_game_over());
+        assert_eq!(result.final_players, vec![Won, Won]);
+    }
 
     /// Runs a game with one cheating player who should get kicked from the game,
     /// and one who plays the normal minmax strategy and should thus win.

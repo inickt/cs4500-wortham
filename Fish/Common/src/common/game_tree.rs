@@ -16,6 +16,7 @@ use std::collections::HashMap;
 /// Note that there is no case when a player is stuck; we simply
 /// skip their turn if they have no moves and move
 /// to the next Turn state.
+#[derive(Debug)]
 pub enum GameTree {
     Turn { state: GameState, valid_moves: HashMap<Move, LazyGame> },
     End(GameState),
@@ -153,6 +154,15 @@ impl LazyGame {
 
             GameTree::new(&state)
         }))
+    }
+}
+
+impl std::fmt::Debug for LazyGame {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            LazyGame::Evaluated(game) => write!(f, "Evaluated({:?})", game),
+            LazyGame::Unevaluated(_) => write!(f, "Unevaluated(_)"),
+        }
     }
 }
 

@@ -1,16 +1,13 @@
 //! This file contains the implementation for an in-house AI player
 //! for the Fish game.
 use crate::common::action::{ Action, Move, Placement };
-use crate::common::gamestate::GameState;
 use crate::client::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use crate::common::gamephase::GamePhase;
 
-use std::io::{ Read, Write };
-
-use serde::Deserialize;
-use serde_json::{ Deserializer, de::IoRead };
-
 /// Represents the in-house AI player for the Fish game.
+/// This player holds their own GamePhase and is responsible for sending
+/// their next Placement or Move through through setting their "output_stream"
+/// to the move serialized to json.
 pub struct InHousePlayer {
     /// InHousePlayers always can communicate with the server through normal
     /// string (de)serialization, they don't need TcpStreams
@@ -108,7 +105,52 @@ mod tests {
     use super::*;
     use crate::common::tile::TileId;
     use crate::common::penguin::PenguinId;
-    use crate::client::strategy::ZigZagMinMaxStrategy;
+    use crate::common::gamestate::GameState;
+    use crate::client::strategy::{ take_zigzag_placement, ZigZagMinMaxStrategy };
+
+    #[test]
+    fn test_take_turn_placement() {
+        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
+
+        let state = GameState::with_default_board(3, 5, 2);
+
+        let serialized = serde_json::to_string(&state).unwrap();
+        player.receive_gamestate(serialized.as_bytes());
+
+        player.take_turn();
+        assert_eq!(&player.output_stream, "{\"PlacePenguin\":{\"tile_id\":0}}");
+    }
+
+    #[test]
+    fn test_take_turn_move() {
+        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
+
+        let mut state = GameState::with_default_board(3, 5, 2);
+
+        for _ in 0 .. state.all_penguins().len() {
+            take_zigzag_placement(&mut state); // place all penguins using the zigzag method
+        }
+
+        let serialized = serde_json::to_string(&state).unwrap();
+        player.receive_gamestate(serialized.as_bytes());
+
+        player.take_turn();
+        // parse stream into move so we can easily test type and 
+        let action: Action = serde_json::from_str(&mut player.output_stream).unwrap();
+
+        assert_eq!(action.as_move().unwrap().tile_id, TileId(2));
+    }
+
+    #[test]
+    fn test_receive_gamestate() {
+        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
+        let state = GameState::with_default_board(3, 5, 2);
+
+        let serialized = serde_json::to_string(&state).unwrap();
+        player.receive_gamestate(serialized.as_bytes());
+
+        assert_eq!(player.phase.take_state(), state);
+    }
 
     #[test]
     fn test_send_place_penguin_message() {

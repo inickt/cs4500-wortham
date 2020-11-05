@@ -12,7 +12,7 @@ use fish::common::penguin::PenguinId;
 use fish::common::player::{ Player, PlayerId };
 use fish::common::penguin::Penguin;
 use fish::common::tile::TileId;
-use fish::common::game_tree::Game;
+use fish::common::game_tree::GameTree;
 use fish::common::util::all_min_by_key;
 
 #[derive(Serialize, Deserialize)]
@@ -120,10 +120,10 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
 /// Finds a move to a neighbor of first_player_tile
 /// in the order North, Northeast, Southeast, South, Southwest, Northwest
 /// and breaks ties by moving the penguin with the lowest row and column, in that order
-fn find_neighboring_move(game: &Game, first_player_tile: TileId) -> Option<Move> {
+fn find_neighboring_move(game: &GameTree, first_player_tile: TileId) -> Option<Move> {
     let state = game.get_state();
     let moves = match game {
-        Game::Turn { valid_moves, .. } => valid_moves,
+        GameTree::Turn { valid_moves, .. } => valid_moves,
         _ => return None,
     };
 
@@ -152,11 +152,11 @@ fn main() {
     let json = JSONStateAndMove::from_reader(stdin.lock());
     let board = board_from_json(&json.state.board);
 
-    let mut gamestate = GameState::new(0, board, json.state.players.len());
+    let mut gamestate = GameState::new(board, json.state.players.len());
 
     place_penguins(&mut gamestate, &json.state.players);
     
-    let mut game_tree = Game::new(&gamestate);
+    let mut game_tree = GameTree::new(&gamestate);
     let move_ = move_from_json(&gamestate, json.from, json.to);
 
     let tree_after_move = game_tree.get_game_after_move(move_).unwrap();

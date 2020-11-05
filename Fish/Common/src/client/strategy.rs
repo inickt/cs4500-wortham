@@ -27,7 +27,7 @@ impl Strategy for ZigZagMinMaxStrategy {
     }
 
     fn find_move(&mut self, game: &mut GameTree) -> Move {
-        find_minmax_move(game, 3)
+        find_minmax_move(game, 2)
     }
 }
 

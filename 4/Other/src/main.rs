@@ -187,7 +187,7 @@ fn main() {
     let json = JSONPlayersAndBoard::from_reader(stdin.lock());
     let board = board_from_json(&json.board);
 
-    let mut gamestate = GameState::new(0, board, json.players.len());
+    let mut gamestate = GameState::new(board, json.players.len());
 
     // Our colors are different, so we have to map PlayerId -> JSONColor
     // for use while reserializing the GameState to make sure it has the right order.

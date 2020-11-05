@@ -11,6 +11,7 @@ use crate::common::player::PlayerId;
 /// period for quick and efficient checks on the GameState.
 /// 
 /// You can find the protocol in Fish/Planning/player-protocol.md
+#[derive(Debug)]
 pub enum GamePhase {
     /// The game is beginning, and no actions should be taken.
     Starting,
@@ -119,12 +120,10 @@ impl Default for GamePhase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::action::{Move, Placement};
 
     fn place_penguins(state: &mut GameState) {
         let mut i = 0;
         let width = state.board.width;
-        let height = state.board.height;
         for (player_id, penguin_id) in state.all_penguins() {
             let col = i % width;
             let row = i / width;

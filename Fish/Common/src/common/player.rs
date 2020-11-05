@@ -127,7 +127,8 @@ fn test_new() {
 
     for (i, player) in players.iter().enumerate() {
         assert_eq!(player.penguins.len(), 2);
-        for other_player in players[i+1..].iter() {
+
+        for (_, other_player) in players.iter().enumerate().filter(|(j, _)| *j != i) {
             // make sure players created have unique IDs and colors
             assert_ne!(player.player_id, other_player.player_id);
             assert_ne!(player.color, other_player.color);
