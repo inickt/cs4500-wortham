@@ -129,9 +129,8 @@ fn test_new() {
         assert_eq!(player.penguins.len(), 2);
 
         for (_, other_player) in players.iter().enumerate().filter(|(j, _)| *j != i) {
-            // make sure players created have unique IDs and colors
+            // make sure players created have unique IDs
             assert_ne!(player.player_id, other_player.player_id);
-            assert_ne!(player.color, other_player.color);
         }
     }
 }
