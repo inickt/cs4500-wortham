@@ -99,7 +99,7 @@ impl GamePhase {
     /// if the GameState has unplaced penguins, GamePhase::PlacingPenguins
     /// if the GameState's penguins are placed but the game isn't over, GamePhase::MovingPenguins
     pub fn update_from_gamestate(&mut self, gamestate: GameState) {
-        let phase = std::mem::take(self);
+        let phase = std::mem::replace(self, GamePhase::Starting);
 
         *self = if !gamestate.all_penguins_are_placed() {
             GamePhase::PlacingPenguins(gamestate)
@@ -108,12 +108,6 @@ impl GamePhase {
         } else {
             GamePhase::Done(gamestate)
         };
-    }
-}
-
-impl Default for GamePhase {
-    fn default() -> Self {
-        GamePhase::Starting
     }
 }
 
