@@ -25,6 +25,12 @@ Repo: atlanta
     winning_players list that is non-empty, the game ends.
     - Once this NewGameState message is sent, the connection will be
     closed by the server and the game will have ended.
+    - Note that since the NewGameState message sent every turn already
+    tells the player if the game has ended (and because the player cannot
+    communicate with a referee after the game ends) there is no special
+    API needed for a player after the game has ended. If they want to
+    play another game they can restart the program or enter a tournament
+    where they will be queued into multiple games.
 
 ## Possible Player->Server Messages
 1. PlacePenguin: Places an unused penguin on the given tile. Can only

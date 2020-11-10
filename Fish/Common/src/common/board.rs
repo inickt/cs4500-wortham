@@ -24,6 +24,11 @@ use serde::{ Serialize, Deserialize };
 /// are made and translated to/from board positions. It should be noted though
 /// that a tile's adjacency list is the preferred method for working on it within
 /// game rules validation code.
+/// 
+/// A hole is represented by the absense of that tile id in the tiles hash map.
+/// Also within each tile, if their neighbor is a hole, that link will be None
+/// rather than Some(TileId). Therefore to create a hole from an existing tile,
+/// remove that tile from the map and unlink it from its neighbor Tiles.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Board {
     pub tiles: HashMap<TileId, Tile>,

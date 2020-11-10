@@ -1,39 +1,35 @@
+# Milestone 2 Feedback
 
-------------------------------------------------------------
-Design Inspection 20/30
-------------------------------------------------------------
+> [x] Unit tests for reachable positions functionality does not check all directions from a given tile.
 
--5 unclear what happens if a wrong player tries to make a move;
- `Move` doesn't have a player info
+Added test to check all reachable directions in tile.rs:274
 
--5 planning does not mention the ability to plan for multiple moves ahead
+# Milestone 3 Feedback
 
-------------------------------------------------------------
-Misc Comments
-------------------------------------------------------------
+> [x] Unit tests are needed for ensuring that advancing the player's turn works correctly.
 
-I wonder if it would be possible to make some helper functions to simplify
-unit tests. (There is a fair bit of boilerplate.)
+Added test for our "advance_turn" function to ensure the turn is changed
+correctly.
 
-Please, add an explanation of how holes are represented in the board interpretation.
+> [x] Clarify what happens if a wrong player attempts to make a move.
+*   Describe why we used PenguinID instead of PlayerID.
 
-The code seems to be reasonably well structured.
-Good testing.
-Nice README.
+Added clarification in games.md:28
 
-MILESTONE 4
+> [x] Describe how a game tree is used to plan multiple moves ahead.
 
--10 no/insufficient/misleading interpretation of the game state
-  how players are related to penguins and how penguins' locations are tracked,
-  what is the order of players and how they take turns
+Added clarification in games.md:26-27
 
--10 it is unclear if the game tree node can represent all three kinds of nodes:
- game-is-over, current-player-is-stuck, and current-player-can-move;
- How to distinguish between game-is-over and current-player-is-stuck
+> [x] Please, add an explanation of how holes are represented in the board interpretation.
 
--3 insufficient description of the player's API wrt to a referee
+Added documentation at board.rs:28
+
+# MILESTONE 4
+
+> [x] insufficient description of the player's API wrt to a referee
   mention the end game
 
+Added clarification to player-protocol.md:28
 
 MILESTONE 5
 

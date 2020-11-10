@@ -23,7 +23,10 @@ HashMap. Otherwise, if the game is in an `End` state, there are no valid moves.
 
 Planning ahead can be done by viewing each possible `Move` in the current `Turn` and
 seeing which `Game` each results in. The HashMap is only accessible if the
-game is not yet ended - there is no point in planning ahead in a finished game anyway.
+game is not yet ended - there is no point in planning ahead in a finished game anyway. Planning multiple moves ahead can be done by recursively analyzing this tree structure. After getting the game after a given move (as explained above) the current turn of this child GameTree will be the next player in turn order. One can
+continue recursing on this structure to advance one turn on each recursive step until they reach their desired termination condition or a GameTree::End leaf is encountered.
+
+Note that Move does not contain the PlayerId representing which player made the move. This is unnecessary when each PenguinId is unique and can be used to identify the owner of the penguin. In the case of a player illegally sending a Move on behalf of another player, this is the concern of the referee keeping the connections separate and is not a concern of this Move struct which needs only to represent a move from point A (the penguin's initial position) to point B (the position of the given TileId) in a GameState.
 
 ```rs
 struct Move {
@@ -31,8 +34,8 @@ struct Move {
     tile_id: TileId,
 }
 
-enum Game {
-    Turn { state: GameState, valid_moves: HashMap<Move, Game> },
+enum GameTree {
+    Turn { state: GameState, valid_moves: HashMap<Move, LazyGameTree> },
     End(GameState),
 }
 ```
