@@ -11,14 +11,14 @@ use std::collections::HashMap;
 /// Each node stores the GameState representing the data about the
 /// game at that point in time.
 /// Uses lazy evaluation to avoid storing the entire data structure
-/// in memory. See the LazyGame struct for more info.
+/// in memory. See the LazyGameTree struct for more info.
 /// 
 /// Note that there is no case when a player is stuck; we simply
 /// skip their turn if they have no moves and move
 /// to the next Turn state.
 #[derive(Debug)]
 pub enum GameTree {
-    Turn { state: GameState, valid_moves: HashMap<Move, LazyGame> },
+    Turn { state: GameState, valid_moves: HashMap<Move, LazyGameTree> },
     End(GameState),
 }
 
@@ -39,7 +39,7 @@ impl GameTree {
             GameTree::End(initial_state.clone())
         } else {
             let valid_moves = valid_moves.into_iter().map(|move_| {
-                let lazy_game = LazyGame::from_move(&move_, initial_state);
+                let lazy_game = LazyGameTree::from_move(&move_, initial_state);
                 (move_, lazy_game)
             }).collect();
 
@@ -92,9 +92,9 @@ impl GameTree {
     {
         match self {
             GameTree::Turn { valid_moves, .. } => {
-                valid_moves.iter_mut().map(|(key, lazy_game)| {
+                valid_moves.iter_mut().map(|(move_, lazy_game)| {
                     let game = lazy_game.get_evaluated();
-                    (key.clone(), f(game))
+                    (move_.clone(), f(game))
                 }).collect()
             },
             GameTree::End(_) => HashMap::new(),
@@ -109,26 +109,26 @@ impl GameTree {
     }
 }
 
-/// A LazyGame is either an already evaluted GameTree or
+/// A LazyGameTree is either an already evaluted GameTree or
 /// is an Unevaluated thunk that can be evaluated to return a GameTree.
 /// Since Games are stored as recursive trees in memory keeping
-/// the branches of each GameTree::Turn as LazyGame::Unevaluated saves
+/// the branches of each GameTree::Turn as LazyGameTree::Unevaluated saves
 /// us from allocating an exponential amount of memory for every
 /// possible GameState. 
-pub enum LazyGame {
+pub enum LazyGameTree {
     Evaluated(GameTree),
     Unevaluated(Box<dyn FnMut() -> GameTree>),
 }
 
-impl LazyGame {
-    /// Retrieves the GameTree from this LazyGame,
-    /// evaluating this LazyGame if it hasn't already been
+impl LazyGameTree {
+    /// Retrieves the GameTree from this LazyGameTree,
+    /// evaluating this LazyGameTree if it hasn't already been
     pub fn get_evaluated(&mut self) -> &mut GameTree {
         match self {
-            LazyGame::Evaluated(game) => game,
-            LazyGame::Unevaluated(thunk) => {
+            LazyGameTree::Evaluated(game) => game,
+            LazyGameTree::Unevaluated(thunk) => {
                 let game = thunk();
-                *self = LazyGame::Evaluated(game);
+                *self = LazyGameTree::Evaluated(game);
                 self.get_evaluated()
             },
         }
@@ -136,20 +136,20 @@ impl LazyGame {
 
     pub fn evaluate(self) -> GameTree {
         match self {
-            LazyGame::Evaluated(game) => game,
-            LazyGame::Unevaluated(mut thunk) => thunk(),
+            LazyGameTree::Evaluated(game) => game,
+            LazyGameTree::Unevaluated(mut thunk) => thunk(),
         }
     }
 
-    /// Create a Unevaluated LazyGame from the given state
+    /// Create a Unevaluated LazyGameTree from the given state
     /// and the move to take to advance that state. The passed in
     /// move must be valid for the given game state.
-    fn from_move(move_: &Move, state: &GameState) -> LazyGame {
+    fn from_move(move_: &Move, state: &GameState) -> LazyGameTree {
         let mut state = state.clone();
         let move_ = move_.clone();
-        LazyGame::Unevaluated(Box::new(move || {
+        LazyGameTree::Unevaluated(Box::new(move || {
             state.move_avatar_for_current_player(move_)
-                .expect(&format!("Invalid move for the given GameState passed to LazyGame::from_move.\
+                .expect(&format!("Invalid move for the given GameState passed to LazyGameTree::from_move.\
                 \nMove: {:?}\nGameState: {:?}", move_, state));
 
             GameTree::new(&state)
@@ -157,11 +157,11 @@ impl LazyGame {
     }
 }
 
-impl std::fmt::Debug for LazyGame {
+impl std::fmt::Debug for LazyGameTree {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
-            LazyGame::Evaluated(game) => write!(f, "Evaluated({:?})", game),
-            LazyGame::Unevaluated(_) => write!(f, "Unevaluated(_)"),
+            LazyGameTree::Evaluated(game) => write!(f, "Evaluated({:?})", game),
+            LazyGameTree::Unevaluated(_) => write!(f, "Unevaluated(_)"),
         }
     }
 }
@@ -224,8 +224,8 @@ mod tests {
                 // Assert all the branches to the tree are initially Unevaluated
                 assert!(valid_moves.iter().all(|(_, lazy_game)| {
                     match lazy_game {
-                        LazyGame::Evaluated(_) => false,
-                        LazyGame::Unevaluated(_) => true,
+                        LazyGameTree::Evaluated(_) => false,
+                        LazyGameTree::Unevaluated(_) => true,
                     }
                 }));
             },

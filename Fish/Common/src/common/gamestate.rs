@@ -54,12 +54,12 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// - The GameState's current_turn player should never be stuck, unless
 ///   the game is over, i.e. current_player should always have moves.
 ///   Players' turns will be skipped in turn_order if they cannot move anymore.
-/// - A GameState's game is over if there is only one player left.
+/// - A GameState's game is over if there is only one player left.        //TODO: is this still correct?
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameState {
     pub board: Board,
     pub players: HashMap<PlayerId, Player>,
-    pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game
+    pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game, unless a player is kicked
     pub current_turn: PlayerId,
     pub spectator_count: usize, // simple count so that players can see their audience size
     pub winning_players: Option<Vec<PlayerId>>, // will be None until the game ends
@@ -203,7 +203,7 @@ impl GameState {
     /// meaning only move the current player can make
     pub fn get_valid_moves(&self) -> Vec<Move> {
         let occupied_tiles = self.get_occupied_tiles();
-        let penguins_to_move = &self.players[&self.current_turn].penguins;
+        let penguins_to_move = &self.current_player().penguins;
 
         penguins_to_move.iter().flat_map(|penguin| {
             // penguins in Games are placed, so should always be Some
@@ -464,5 +464,18 @@ pub mod tests {
         let player = gamestate.players.iter_mut().nth(0).unwrap().1;
         let penguin_pos = player.find_penguin_mut(penguin_id).and_then(|penguin| penguin.tile_id);
         assert_eq!(penguin_pos, Some(reachable_tile));
+    }
+
+    #[test]
+    fn test_advance_turn() {
+        let mut gamestate = GameState::with_default_board(3, 3, 4);
+
+        for i in 0..4 {
+            assert_eq!(gamestate.current_turn, gamestate.turn_order[i]);
+            gamestate.advance_turn();
+        }
+
+        // check that advancing the turn on the last player makes the gamestate look at the first player in the order again
+        assert_eq!(gamestate.current_turn, gamestate.turn_order[0]);
     }
 }

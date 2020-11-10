@@ -48,7 +48,7 @@ impl Board {
     ///
     /// Using these formulas to calculate the neighbors of a given tile, provided
     /// it is within bounds of the board itself:
-    /// 
+    ///
     /// northeast tile = [x + is-odd-row, y - 1]
     /// northwest tile = [x - is-even-row, y - 1]
     /// north tile = [x, y - 2]

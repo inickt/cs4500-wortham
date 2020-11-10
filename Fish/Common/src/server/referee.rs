@@ -25,7 +25,8 @@ use crate::server::serverplayer::Client;
 /// 3. Send non-well-formed JSON data to the Referee
 /// 4. [Future] Take more than 30 seconds to send their move on their turn
 struct Referee {
-    /// Client input/output stream data, indexed on GameState's PlayerId
+    /// Client input/output stream data, indexed on GameState's PlayerId.
+    /// This Vec is in turn_order for each player.
     players: Vec<(PlayerId, Client)>,
 
     /// The state of current game, separated by the current phase it is in.
@@ -36,7 +37,7 @@ struct Referee {
 /// whether they won, lost, or were kicked.
 pub struct GameResult {
     /// This list is in the same order and of the same length
-    /// as the Referee's original players list. So, each entry
+    /// as the Referee's original players list and turn_order. So, each entry
     /// directly corresponds to the game outcome for a particular player.
     final_players: Vec<ClientStatus>,
 

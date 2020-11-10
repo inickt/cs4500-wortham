@@ -133,14 +133,17 @@ impl Tile {
     /// Returns a Vec of all tiles reachable from a given direction, including self.
     /// Returns empty vec if self is occupied.
     pub fn all_reachable_tiles_in_direction<'b>(&'b self, board: &'b Board, direction: Direction, occupied_tiles: &HashSet<TileId>) -> Vec<&'b Tile> {
-        match self.get_neighbor(board, direction) {
-            Some(tile) if !occupied_tiles.contains(&self.tile_id) => {
-                let mut reachable_tiles = tile.all_reachable_tiles_in_direction(board, direction, occupied_tiles);
-                reachable_tiles.push(self);
-                reachable_tiles
-            },
-            None if !occupied_tiles.contains(&self.tile_id) => vec![self],
-            _ => vec![], // current tile is occupied and therefore cannot be reached
+        if occupied_tiles.contains(&self.tile_id) {
+            vec![]
+        } else {
+            match self.get_neighbor(board, direction) {
+                Some(neighbor) => {
+                    let mut reachable_tiles = neighbor.all_reachable_tiles_in_direction(board, direction, occupied_tiles);
+                    reachable_tiles.push(self);
+                    reachable_tiles
+                },
+                None => vec![self],
+            }
         }
     }
 
@@ -265,4 +268,26 @@ fn test_all_reachable_tiles() {
         &b.tiles[&TileId(3)],
     ];
     assert_eq!(tile_5.all_reachable_tiles(&b, &vec![TileId(4)].into_iter().collect()), expected_reachable_with_occupied);
+}
+
+#[test]
+fn test_all_reachable_tiles_all_directions() {
+    // 5 x 3 board should look like:
+    // 0    5    10
+    //   1    6    11
+    // 2    7    12
+    //   3    8    13
+    // 4    9    14
+    let b = Board::with_no_holes(5, 3, 4);
+
+    let tile_7 = b.tiles.get(&TileId(7)).unwrap();
+    let expected_reachable = vec![
+        &b.tiles[&TileId(1)],
+        &b.tiles[&TileId(5)],
+        &b.tiles[&TileId(6)],
+        &b.tiles[&TileId(3)],
+        &b.tiles[&TileId(9)],
+        &b.tiles[&TileId(8)],
+    ];
+    assert_eq!(tile_7.all_reachable_tiles(&b, &HashSet::new()), expected_reachable);
 }

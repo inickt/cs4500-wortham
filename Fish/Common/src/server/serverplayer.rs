@@ -28,7 +28,7 @@ impl Client {
                 ai.take_turn();
                 serde_json::from_str(&mut ai.output_stream).ok()
             },
-            Client::Kicked => None,
+            Client::Kicked => unreachable!("It should never be a kicked player's turn"),
         }
     }
 
