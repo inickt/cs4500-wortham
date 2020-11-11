@@ -282,12 +282,16 @@ fn test_all_reachable_tiles_all_directions() {
 
     let tile_7 = b.tiles.get(&TileId(7)).unwrap();
     let expected_reachable = vec![
+        &b.tiles[&TileId(10)],
+        &b.tiles[&TileId(6)],
+        &b.tiles[&TileId(0)],
         &b.tiles[&TileId(1)],
         &b.tiles[&TileId(5)],
-        &b.tiles[&TileId(6)],
-        &b.tiles[&TileId(3)],
         &b.tiles[&TileId(9)],
+        &b.tiles[&TileId(14)],
         &b.tiles[&TileId(8)],
+        &b.tiles[&TileId(4)],
+        &b.tiles[&TileId(3)],
     ];
     assert_eq!(tile_7.all_reachable_tiles(&b, &HashSet::new()), expected_reachable);
 }

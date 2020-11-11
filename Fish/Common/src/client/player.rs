@@ -106,7 +106,7 @@ mod tests {
     use crate::common::tile::TileId;
     use crate::common::penguin::PenguinId;
     use crate::common::gamestate::GameState;
-    use crate::client::strategy::{ take_zigzag_placement, ZigZagMinMaxStrategy };
+    use crate::client::strategy::{ tests::take_zigzag_placement, ZigZagMinMaxStrategy };
 
     #[test]
     fn test_take_turn_placement() {

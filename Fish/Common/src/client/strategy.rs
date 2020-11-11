@@ -130,12 +130,12 @@ fn find_best_move(state: &GameState, is_players_turn: bool, moves: HashMap<Move,
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use crate::common::tile::TileId;
 
     /// Place a penguin using the ZigZag strategy
-    fn take_zigzag_placement(state: &mut GameState) {
+    pub fn take_zigzag_placement(state: &mut GameState) {
         let player = state.current_player();
         let player_id = player.player_id;
         let penguin_id = player.get_unplaced_penguin_id().expect("All penguins are already placed");
