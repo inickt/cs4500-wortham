@@ -20,7 +20,7 @@ and to create a hole, simply remove a tile from that map and unlink it from its 
 
 #### Approach to remove deficiency:
 Added test to check all reachable directions in tile.rs:274.
-https://github.ccs.neu.edu/CS4500-F20/muleshoe/blob/3444536cf6243635922c85fce66a99f311966555/Fish/Common/src/common/tile.rs#L274-L293
+https://github.ccs.neu.edu/CS4500-F20/muleshoe/blob/91bea8104db14cf5e973cc9dbcf728b10170a511/Fish/Common/src/common/tile.rs#L274-L297
 
 This test sets up a 5x3 board and checks all the reachable positions of the middle tile (tile ID 7). This tile is
 completely surrounded on all sides.
