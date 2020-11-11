@@ -49,7 +49,8 @@ On each turn:
 2. Accept place penguin messages from the current player if they have
    unplaced penguins, or move messages otherwise. The format of these messages
    is given in player-protocol.md. Failure to give a message in the correct
-   format will result in the player being kicked from the game and their
+   format or failure to give a message at all within the timeout of 30 seconds
+   will result in the player being kicked from the game and their
    penguins removed from the board.
    - Process and validate the received message sent from a player
      according to the rules of Fish. If the message is invalid in any

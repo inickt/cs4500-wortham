@@ -37,6 +37,12 @@ Repo: atlanta
 be sent when a player has unplaced penguins. The player that will place
 the penguin is determined by the TCP connection info of the client that
 sent this message. If the placement is invalid, that player will be kicked from the
+
+## Possible Player->Server Messages
+1. PlacePenguin: Places an unused penguin on the given tile. Can only
+be sent when a player has unplaced penguins. The player that will place
+the penguin is determined by the TCP connection info of the client that
+sent this message. If the placement is invalid, that player will be kicked from the
 game and have all their penguins removed.
 ```json
 {

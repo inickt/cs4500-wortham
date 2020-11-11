@@ -31,7 +31,7 @@ impl Strategy for ZigZagMinMaxStrategy {
     }
 }
 
-/// Places a penguin for the player whose turn it currently is 
+/// Finds a spot to place a penguin for the current player
 /// at the next available spot on the game board, according to
 /// the following zig-zag algorithm:
 /// 1. Start at row 0, col 0
@@ -43,16 +43,8 @@ impl Strategy for ZigZagMinMaxStrategy {
 /// all the penguins of its players, i.e. there will always be an
 /// open spot.
 /// 
-/// This function panics if the current player has no unplaced penguins.
-pub fn take_zigzag_placement(state: &mut GameState) {
-    let player = state.current_player();
-    let player_id = player.player_id;
-    let penguin_id = player.get_unplaced_penguin_id().expect("All penguins are already placed");
-
-    let placement = find_zigzag_placement(state);
-    state.place_avatar_for_player(player_id, penguin_id, placement.tile_id);
-}
-
+/// This function panics if the current player has no unplaced penguins
+/// or all the board positions are filled.
 pub fn find_zigzag_placement(state: &GameState) -> Placement {
     let occupied_tiles = state.get_occupied_tiles();
 
@@ -141,6 +133,16 @@ fn find_best_move(state: &GameState, is_players_turn: bool, moves: HashMap<Move,
 mod tests {
     use super::*;
     use crate::common::tile::TileId;
+
+    /// Place a penguin using the ZigZag strategy
+    fn take_zigzag_placement(state: &mut GameState) {
+        let player = state.current_player();
+        let player_id = player.player_id;
+        let penguin_id = player.get_unplaced_penguin_id().expect("All penguins are already placed");
+
+        let placement = find_zigzag_placement(state);
+        state.place_avatar_for_player(player_id, penguin_id, placement.tile_id);
+    }
 
     #[test]
     fn test_place_penguin_zigzag() {
