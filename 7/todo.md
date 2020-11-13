@@ -24,3 +24,15 @@ outstanding feedback were some design and documentation clarifications. Any feed
 # Milestone 5
 
 > [x] Specify how the referee handles players who do not make an action.
+
+# Milestone 6
+
+> [ ] no unit test that specifically addresses placement only
+
+> [ ] game tree is not reset with new state after player is removed
+
+> [ ] no separate method/function that implements protection of calls to player
+
+> [ ] unit tests only cover one abnormal condition
+
+> [ ] the design document does not specify how the tournament manager assigns players to referees
