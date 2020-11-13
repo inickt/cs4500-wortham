@@ -27,12 +27,12 @@ outstanding feedback were some design and documentation clarifications. Any feed
 
 # Milestone 6
 
-> [ ] no unit test that specifically addresses placement only
+> [ ] Need a unit test for just the placement phase of the referee.
 
-> [ ] game tree is not reset with new state after player is removed
+> [ ] Need to reset the game tree after a player is removed.
 
-> [ ] no separate method/function that implements protection of calls to player
+> [ ] Protect referee against AI players who loop indefinitely and/or panic.
 
-> [ ] unit tests only cover one abnormal condition
+> [ ] Add more unit tests that cover more abnormal conditions (i.e. check for invalid JSON).
 
-> [ ] the design document does not specify how the tournament manager assigns players to referees
+> [ ] Clarify how the tournament manager assigns players to referees.
