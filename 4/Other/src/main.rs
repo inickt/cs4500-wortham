@@ -118,7 +118,8 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
 fn try_move_penguin(gamestate: &mut GameState, penguin_id: PenguinId, direction: Direction) -> bool {
     let penguin = gamestate.current_player().find_penguin(penguin_id).unwrap();
     let tile = gamestate.get_tile(penguin.tile_id.unwrap()).unwrap();
-    let occupied_tiles = gamestate.get_occupied_tiles();
+    let mut occupied_tiles = gamestate.get_occupied_tiles();
+    occupied_tiles.remove(&penguin.tile_id.unwrap());
     let mut reachable_tiles = tile.all_reachable_tiles_in_direction(&gamestate.board, direction, &occupied_tiles);
     reachable_tiles.pop(); // Remove the current tile since it is considered reachable from itself in the helper above
 
