@@ -1,0 +1,6 @@
+{
+    "row": 2,
+    "column": 2,
+    "players": [["bob", 1], ["Eliza", 2]],
+    "fish": 1
+}
