@@ -42,9 +42,17 @@ fn main() {
     let board = Board::with_no_holes(description.row, description.column, description.fish);
 
     let players = description.players.iter().map(|player| {
-
         Client::InHouseAI(InHousePlayer::new(Box::new(player.clone())))
     }).collect();
 
-    let results = referee::run_game(players, Some(board));
+    // PlayerResult = Won | Lost | Kicked
+    let player_results = referee::run_game(players, Some(board)).final_players;
+
+    let mut winning_players = player_results.iter().zip(description.players.iter())
+        .filter(|result, _| result == referee::ClientStatus::Won)
+        .map(|_, desc| &desc.name)
+        .collect();
+        
+    winning_players.sort();
+    println!("{}", json!(winning_players));
 }
