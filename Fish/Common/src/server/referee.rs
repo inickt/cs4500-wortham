@@ -39,7 +39,7 @@ pub struct GameResult {
     /// This list is in the same order and of the same length
     /// as the Referee's original players list and turn_order. So, each entry
     /// directly corresponds to the game outcome for a particular player.
-    final_players: Vec<ClientStatus>,
+    pub final_players: Vec<ClientStatus>,
 
     /// This is the final state of the game, which may be used to delve
     /// into statistics detail about each player, such as their score

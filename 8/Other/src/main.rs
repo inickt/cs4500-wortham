@@ -49,9 +49,9 @@ fn main() {
     let player_results = referee::run_game(players, Some(board)).final_players;
 
     let mut winning_players = player_results.iter().zip(description.players.iter())
-        .filter(|result, _| result == referee::ClientStatus::Won)
-        .map(|_, desc| &desc.name)
-        .collect();
+        .filter(|(result, _)| *result == &referee::ClientStatus::Won)
+        .map(|(_, desc)| &desc.name)
+        .collect::<Vec<_>>();
         
     winning_players.sort();
     println!("{}", json!(winning_players));
