@@ -19,7 +19,7 @@ pub struct PenguinId(pub usize);
 /// on the board and a unique ID. Its position can be None, meaning
 /// it is not placed yet, or Some(BoardPosn), meaning it's placed at
 /// the BoardPosn on the game board.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Penguin {
     pub penguin_id: PenguinId,
     /// INVARIANT: tile_id will always be a valid tile in this Tile's Board

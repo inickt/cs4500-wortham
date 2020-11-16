@@ -22,6 +22,8 @@ pub enum GameTree {
     End(GameState),
 }
 
+unsafe impl Send for GameTree {}
+
 impl GameTree {
     /// Initialize a GameTree from the given initial GameState.
     /// The given state does not have to be the start of a game -

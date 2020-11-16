@@ -10,7 +10,7 @@
 //! on line 22.
 use crate::common::tile::{ Tile, TileId };
 use crate::common::boardposn::BoardPosn;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{ Serialize, Deserialize };
 
@@ -29,9 +29,9 @@ use serde::{ Serialize, Deserialize };
 /// Also within each tile, if their neighbor is a hole, that link will be None
 /// rather than Some(TileId). Therefore to create a hole from an existing tile,
 /// remove that tile from the map and unlink it from its neighbor Tiles.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Board {
-    pub tiles: HashMap<TileId, Tile>,
+    pub tiles: BTreeMap<TileId, Tile>,
     pub width: u32,
     pub height: u32,
 }
@@ -61,7 +61,7 @@ impl Board {
     /// southeast tile = [x + is-odd-row, y + 1]
     /// southwest tile = [x - is-even-row, y + 1]
     pub fn with_no_holes(rows: u32, columns: u32, fish_per_tile: usize) -> Board {
-        let mut tiles = HashMap::new();
+        let mut tiles = BTreeMap::new();
 
         // Convert row-major form to the column-major form used internally.
         // Also convert to signed representation for bounds checking later which may use negatives.

@@ -15,10 +15,10 @@ use serde::{ Serialize, Deserialize };
 /// Used for setting unique PlayerIds for each player.
 static TOTAL_PLAYER_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct PlayerId(pub usize);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PlayerColor {
     Blue,
     Green,
@@ -41,7 +41,7 @@ impl PlayerColor {
 /// Represents an in-game player. Agnostic of the player's
 /// external information, like username, connection information,
 /// etc.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Player {
     pub player_id: PlayerId,
     pub penguins: Vec<Penguin>,

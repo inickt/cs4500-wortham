@@ -69,8 +69,18 @@ pub fn find_zigzag_placement(state: &GameState) -> Placement {
 /// Panics if the game is already over.
 pub fn find_minmax_move(game: &mut GameTree, lookahead: usize) -> Move {
     let player_to_maximize_score = game.get_state().current_turn;
-    let (_, moves) = find_best_score_and_moves(game, player_to_maximize_score, lookahead);
-    *moves.last().expect("The game is over, there are no valid moves!")
+    let mut cache = MaxiMinCache::new();
+    let (_, move_) = find_best_score_and_moves(game, player_to_maximize_score, lookahead, &mut cache);
+    move_.expect("The game is over, there are no valid moves!")
+}
+
+type MaxiMinCache = HashMap<u64, (usize, Move)>;
+
+fn hash_state(state: &GameState) -> u64 {
+    use std::hash::{ Hash, Hasher };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    state.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// Traverse the Game tree to find a set of moves that maximizes the score of the given player,
@@ -85,26 +95,31 @@ pub fn find_minmax_move(game: &mut GameTree, lookahead: usize) -> Move {
 ///   node is given, whichever comes first.
 /// 
 /// See find_best_move for the specific algorithm used to select the best move.
-fn find_best_score_and_moves(game: &mut GameTree, player: PlayerId, lookahead: usize) -> (usize, Vec<Move>) {
+fn find_best_score_and_moves(game: &mut GameTree, player: PlayerId, lookahead: usize, cache: &mut MaxiMinCache) -> (usize, Option<Move>) {
     let is_players_turn = game.get_state().current_turn == player;
 
-    if game.is_game_over() || (lookahead == 0 && is_players_turn) {
-        (game.get_state().player_score(player), vec![])
+    if game.is_game_over() || lookahead == 0 {
+        (game.get_state().player_score(player), None)
     } else {
         // Lookahead is counted in rounds where every player takes a turn,
         // so only decrease it when the given player takes a turn.
         let lookahead = lookahead - if is_players_turn { 1 } else { 0 };
 
+        let hash = hash_state(game.get_state());
+        if let Some((score, move_)) = cache.get(&hash) {
+            return (*score, Some(*move_));
+        }
+
         // Recurse first, getting the expected states after each possible move the current player can take
         // assuming the given player maximizes their score and all opponents minimize it.
         let possible_moves = game.map(|game_after_move| {
-            find_best_score_and_moves(game_after_move, player, lookahead)
+            find_best_score_and_moves(game_after_move, player, lookahead, cache)
         });
 
         // Maximize the score for the given player if it's their turn, otherwise take the move that minimizes it
-        let (new_move, (score, mut move_history)) = find_best_move(game.get_state(), is_players_turn, possible_moves);
-        move_history.push(new_move);
-        (score, move_history)
+        let (score, move_) = find_best_move(game.get_state(), is_players_turn, possible_moves);
+        cache.insert(hash, (score, move_));
+        (score, Some(move_))
     }
 }
 
@@ -115,7 +130,7 @@ fn find_best_score_and_moves(game: &mut GameTree, player: PlayerId, lookahead: u
 /// multiple equally-scored moves.
 /// 
 /// Returns the (key, value) pair of the given hashmap that represents the best turn following the rules above.
-fn find_best_move(state: &GameState, is_players_turn: bool, moves: HashMap<Move, (usize, Vec<Move>)>) -> (Move, (usize, Vec<Move>)) {
+fn find_best_move(state: &GameState, is_players_turn: bool, moves: HashMap<Move, (usize, Option<Move>)>) -> (usize, Move) {
     let moves = if is_players_turn {
         all_max_by_key(moves.into_iter(), |(_, (score, _))| *score)
     } else {
@@ -126,7 +141,8 @@ fn find_best_move(state: &GameState, is_players_turn: bool, moves: HashMap<Move,
     let moves = all_min_by_key(moves, |(move_, _)| state.get_penguin_tile_position(move_.penguin_id).unwrap());
     let mut moves = all_min_by_key(moves, |(move_, _)| state.board.get_tile_position(move_.tile_id));
 
-    moves.nth(0).unwrap()
+    let (move_, (score, _old_move)) = moves.nth(0).unwrap();
+    (score, move_)
 }
 
 #[cfg(test)]

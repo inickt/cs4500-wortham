@@ -15,7 +15,7 @@ use crate::common::util;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{ Serialize, Deserialize };
 
@@ -58,12 +58,24 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameState {
     pub board: Board,
-    pub players: HashMap<PlayerId, Player>,
+    pub players: BTreeMap<PlayerId, Player>,
     pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game, unless a player is kicked
     pub current_turn: PlayerId,
     pub spectator_count: usize, // simple count so that players can see their audience size
     pub winning_players: Option<Vec<PlayerId>>, // will be None until the game ends
 }
+
+impl std::hash::Hash for GameState {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.board.hash(state);
+        for (_, player) in self.players.iter() {
+            player.penguins.hash(state);
+            player.score.hash(state);
+        }
+        self.current_turn.hash(state);
+    }
+}
+
 
 impl GameState {
     /// Create a new SharedGameState with the given game id, board, and player_count.
@@ -75,7 +87,7 @@ impl GameState {
         // Each player receives 6 - N penguins, where N is the number of players
         let penguins_per_player = PENGUIN_FACTOR - player_count; 
 
-        let players: HashMap<_, _> = util::make_n(player_count, |_| {
+        let players: BTreeMap<_, _> = util::make_n(player_count, |_| {
             let player = Player::new(penguins_per_player);
             (player.player_id, player)
         });
