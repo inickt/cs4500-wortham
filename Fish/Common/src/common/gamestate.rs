@@ -19,8 +19,8 @@ use std::collections::BTreeMap;
 
 use serde::{ Serialize, Deserialize };
 
-const MIN_PLAYERS_PER_GAME: usize = 2;
-const MAX_PLAYERS_PER_GAME: usize = 4;
+pub const MIN_PLAYERS_PER_GAME: usize = 2;
+pub const MAX_PLAYERS_PER_GAME: usize = 4;
 
 /// Each player receives 6 - player_count penguins to start the game
 const PENGUIN_FACTOR: usize = 6;

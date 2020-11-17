@@ -5,7 +5,7 @@ mod server;
 use common::board::Board;
 use client::player::InHousePlayer;
 use server::referee::run_game;
-use server::serverplayer::Client;
+use server::serverclient::Client;
 
 use std::rc::Rc;
 use std::cell::RefCell;

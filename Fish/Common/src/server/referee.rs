@@ -9,7 +9,7 @@ use crate::common::gamephase::GamePhase;
 use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerId;
 
-use crate::server::serverplayer::Client;
+use crate::server::serverclient::Client;
 
 /// A referee is in charge of starting, running, and managing a game of fish.
 /// This entails looping until the game is over and on each turn sending the
@@ -39,7 +39,7 @@ pub struct GameResult {
     /// This list is in the same order and of the same length
     /// as the Referee's original players list and turn_order. So, each entry
     /// directly corresponds to the game outcome for a particular player.
-    pub final_players: Vec<ClientStatus>,
+    pub final_players: Vec<(Client, ClientStatus)>,
 
     /// This is the final state of the game, which may be used to delve
     /// into statistics detail about each player, such as their score

@@ -6,7 +6,7 @@ use fish::common::gamestate::GameState;
 use fish::common::game_tree::GameTree;
 use fish::common::action::{Move, Placement};
 use fish::server::referee;
-use fish::server::serverplayer::Client;
+use fish::server::serverclient::Client;
 use fish::client::strategy;
 use fish::client::player::InHousePlayer;
 

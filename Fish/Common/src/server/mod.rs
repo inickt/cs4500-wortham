@@ -1,3 +1,4 @@
 pub mod referee;
-pub mod serverplayer;
+pub mod serverclient;
 mod connection;
+mod manager;
