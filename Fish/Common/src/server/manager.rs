@@ -39,11 +39,10 @@ fn run_tournament(players: Vec<Client>, board: Option<Board>) -> Vec<Client> {
 /// players that were removed because they lost or cheated.
 fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>) -> Vec<Client> {
     let mut all_winners = vec![];
-    for mut group in groups {
-        let group_refs = group.iter_mut().collect();
-        let results = referee::run_game(group_refs, board.clone()).final_players;
+    for group in groups {
+        let results = referee::run_game(group, board.clone()).final_players;
 
-        let mut winners = group.into_iter().zip(results)
+        let mut winners = results.into_iter()
             .filter(|(_, result)| result == &ClientStatus::Won)
             .map(|(client, _)| client)
             .collect();
