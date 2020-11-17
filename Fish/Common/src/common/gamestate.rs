@@ -55,7 +55,7 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 ///   the game is over, i.e. current_player should always have moves.
 ///   Players' turns will be skipped in turn_order if they cannot move anymore.
 /// - A GameState's game is over if there is only one player left.        //TODO: is this still correct?
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GameState {
     pub board: Board,
     pub players: BTreeMap<PlayerId, Player>,
@@ -63,17 +63,6 @@ pub struct GameState {
     pub current_turn: PlayerId,
     pub spectator_count: usize, // simple count so that players can see their audience size
     pub winning_players: Option<Vec<PlayerId>>, // will be None until the game ends
-}
-
-impl std::hash::Hash for GameState {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.board.hash(state);
-        for (_, player) in self.players.iter() {
-            player.penguins.hash(state);
-            player.score.hash(state);
-        }
-        self.current_turn.hash(state);
-    }
 }
 
 
