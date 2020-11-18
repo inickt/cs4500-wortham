@@ -171,6 +171,8 @@ mod tests {
     use super::*;
     use crate::client::player::InHousePlayer;
     use crate::common::gamestate::GameState;
+    use crate::common::tile::TileId;
+    use crate::common::penguin::PenguinId;
     use crate::common::game_tree::GameTree;
     use crate::common::action::{Placement, Move};
     use crate::client::strategy::Strategy;
@@ -190,31 +192,66 @@ mod tests {
         }
     }
 
+    /// A strategy used to simulate a cheating player.
+    pub struct CheatingStrategy;
+
+    impl Strategy for CheatingStrategy {
+        fn find_placement(&mut self, gamestate: &GameState) -> Placement {
+            find_zigzag_placement(gamestate)
+        }
+
+        fn find_move(&mut self, _game: &mut GameTree) -> Move {
+            Move::new(PenguinId(0), TileId(0))
+        }
+    }
+
     /// Create a player that uses a SimpleStrategy
     fn make_simple_strategy_player() -> InHousePlayer {
         InHousePlayer::new(Box::new(SimpleStrategy))
     }
 
-    /// and players 1 and 0 4 will advance to
-    /// a two player round. This round will result in player 0 winning.
-    /// 
-    /// The initial 3oard after penguins are placed looks as follows:
-    /// 
-    /// 3 fish on each tile
+    /// Creating a player that uses a cheating strategy
+    fn make_cheating_player() -> InHousePlayer {
+        InHousePlayer::new(Box::new(CheatingStrategy))
+    }
+
+    /// Run a full tournament of fish, with 8 players and a total of 2 rounds. The initial board after penguins are placed looks as follows:
     /// p1    p2    p3    p4    p1
     ///    p2    p3    p4    3     3
     /// 3     3     3     3     3
     ///    3     3     3     3     3
     /// 3     3     3     3     3
     ///
-    /// After round 1, the board looks as follows
-    /// x     x     x     x     x
-    ///    x     x     x     x     x
-    /// x     x     x     x     x
-    ///    x     x     x     x     x
-    /// p1   p2    p3     p4     x
+    /// Where there are 3 fish per tile.
     ///
-    /// Run a tournament using 8 players with simple strategies. The first player of each 4 player round will win, and then the first player wil
+    /// After round 1, the board looks as follows:
+    /// x     x     x     x     x
+    ///    x     x     x     x     x
+    /// x     x     x     p4    x
+    ///    p2    x     p3    x     x
+    /// p1    p2    p3    p4    p1
+    /// 
+    /// Player 1 of each individual game will be the winner. This will correspond to players 1 and 5 of the tournament.
+    ///
+    /// After the placement phase, the board at round 2 looks as follows:
+    /// p1    p2    p1    p2    p1
+    ///    p2    p1    p2    3     3
+    /// 3     3     3     3     3
+    ///    3     3     3     3     3
+    /// 3     3     3     3     3
+    ///
+    /// Where there are 3 fish per tile.
+    ///
+    /// After round 2, the board looks as follows:
+    /// x     x     x     x     x
+    ///    x     x     x     x     x
+    /// x     x     x     x     x
+    ///    p2    x     p1    x     p1
+    /// p1    p2    p1    p2    p2
+    ///
+    /// Thus, player 1 of the tournament will be the winner.
+    ///
+    /// Each player uses a simple strategy, with a min-max lookahead of 1.
     #[test]
     fn test_run_tournament() {
         // make sure to test tournaments with > 2 rounds
@@ -232,11 +269,55 @@ mod tests {
 
     #[test]
     fn test_run_round() {
-        // assert_eq!(run_round(...), vec![...]);
+        // TODO
     }
 
+    // TODO: test when a winning player doesn't respond and gets turned into a losing player
+
+    /// Run a full tournament of fish, with 8 players and a total of 2 rounds. This is the same as the test for
+    /// `test_run_tournament`, except the second player is a cheating player who is removed upon its first attempt
+    /// to move a penguin.
+    ///
+    /// The initial board after penguins are placed looks as follows:
+    /// p1    p2    p3    p4    p1
+    ///    p2    p3    p4    3     3
+    /// 3     3     3     3     3
+    ///    3     3     3     3     3
+    /// 3     3     3     3     3
+    ///
+    /// Where there are 3 fish per tile.
+    ///
+    /// Player 2 will be kicked upon its first move. The board will then look as follows:
+    /// p1    x     p3    p4    p1
+    ///    x     p3    p4    3     3
+    /// p1    3     3     3     3
+    ///    3     3     3     3     3
+    /// 3     3     3     3     3
+    ///
+    /// After round 1, the board looks as follows:
+    /// x     x     x     x     x
+    ///    x     x     x     p4    x
+    /// x     x     x     x     x
+    ///    x     x     x     x     p1
+    /// p1    p3    p3    p4    x 
+    /// 
+    /// Player 1 will be the winner. Everythign past this point is the same as the test for `test_run_tournament`.
     #[test]
-    fn test_run_bad_round() { }
+    fn test_run_bad_round() {
+        let mut players: Vec<Client> = util::make_n(8, |_|
+            Client::InHouseAI(make_simple_strategy_player())
+        );
+
+        // make player 2 of the first game a cheating player
+        players[1] = Client::InHouseAI(make_cheating_player());
+        
+        let board = Board::with_no_holes(5, 5, 2);
+        let statuses = run_tournament(players, Some(board));
+        let mut results = vec![ClientStatus::Lost; 8];
+        results[0] = ClientStatus::Won;
+        results[1] = ClientStatus::Kicked;
+        assert_eq!(statuses, results);
+    }
 
     /// Partition 8 players into two games that both result in all winners. At the end of this test
     /// every player should come back a winner.
@@ -273,8 +354,21 @@ mod tests {
         assert_eq!(statuses, vec![]);
     }
 
+    /// Test a tournament where there are enough players for a just a single round. This test is identical to the second round of
+    /// `test_run_tournament`. Player 1 will win this tournament.
     #[test]
-    fn test_tournament_ends_when_partipant_count_is_small_enough_to_have_one_final_game() { }
+    fn test_tournament_ends_when_partipant_count_is_small_enough_to_have_one_final_game() {
+
+        let players = vec![
+            Client::InHouseAI(make_simple_strategy_player()),
+            Client::InHouseAI(make_simple_strategy_player()),
+        ];
+        
+        let board = Board::with_no_holes(5, 5, 2);
+        let statuses = run_tournament(players, Some(board));
+        let winners = vec![ClientStatus::Won, ClientStatus::Lost];
+        assert_eq!(statuses, winners);
+    }
 
     #[test]
     fn test_allocate_backtracking() {
