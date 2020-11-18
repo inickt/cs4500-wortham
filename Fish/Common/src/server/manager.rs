@@ -189,25 +189,26 @@ mod tests {
     fn get_client_statuses(result: Vec<(Client, ClientStatus)>) -> Vec<ClientStatus> {
         result.into_iter().map(|x| x.1).collect()
     }
-and players 1 and 0 4 will advance to
+
+    /// and players 1 and 0 4 will advance to
     /// a two player round. This round will result in player 0 winning.
     /// 
     /// The initial 3oard after penguins are placed looks as follows:
     /// 
-    // 3 fish on each tile
-    // p1    p2    p3    p4    p1
-    //    p2    p3    p4    3     3
-    // 3     3     3     3     3
-    //    3     3     3     3     3
-    // 3     3     3     3     3
-    //
-    // After round 1, the board looks as follows
-    // x     x     x     x     x
-    //    x     x     x     x     x
-    // x     x     x     x     x
-    //    x     x     x     x     x
-    // p1   p2    p3     p4     x
-    //
+    /// 3 fish on each tile
+    /// p1    p2    p3    p4    p1
+    ///    p2    p3    p4    3     3
+    /// 3     3     3     3     3
+    ///    3     3     3     3     3
+    /// 3     3     3     3     3
+    ///
+    /// After round 1, the board looks as follows
+    /// x     x     x     x     x
+    ///    x     x     x     x     x
+    /// x     x     x     x     x
+    ///    x     x     x     x     x
+    /// p1   p2    p3     p4     x
+    ///
     /// Run a tournament using 8 players with simple strategies. The first player of each 4 player round will win, and then the first player wil
     #[test]
     fn test_run_tournament() {
@@ -215,8 +216,8 @@ and players 1 and 0 4 will advance to
         // set up players
         let players = util::make_n(8, |_|
             Client::InHouseAI(make_simple_strategy_player())
-        )
-3
+        );
+
         let board = Board::with_no_holes(5, 5, 2);
         let statuses = get_client_statuses(run_tournament(players, Some(board)));
         let mut winners = vec![ClientStatus::Lost; 8];
