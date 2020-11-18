@@ -1,5 +1,6 @@
 We fixed all failing tests for each assignment as we went along so our only remaining
-outstanding feedback were some design and documentation clarifications. Any feedback that has already been fixed in past weeks has been omitted.
+outstanding feedback were some design and documentation clarifications. Any feedback
+that has already been fixed in past weeks has been omitted.
 
 # Milestone 2
 

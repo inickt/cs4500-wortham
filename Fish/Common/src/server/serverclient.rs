@@ -22,7 +22,7 @@ impl Client {
         match self {
             Client::Remote(connection) => {
                 // Wait for the player to send their Action
-                Action::deserialize(&mut connection.input_deserializer).ok()
+                unimplemented!()
             },
             Client::InHouseAI(ai) => {
                 ai.take_turn();
@@ -43,7 +43,7 @@ impl Client {
     pub fn send(&mut self, message: &[u8]) -> Result<usize, std::io::Error> {
         match self {
             Client::Remote(connection) => {
-                connection.output_stream.write(message)
+                unimplemented!()
             },
             Client::InHouseAI(ai) => { 
                 ai.receive_gamestate(message);

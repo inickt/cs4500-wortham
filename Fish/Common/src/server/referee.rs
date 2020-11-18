@@ -47,13 +47,7 @@ pub struct GameResult {
     pub final_state: GameState
 }
 
-impl GameResult {
-    fn final_statuses(&self) -> Vec<ClientStatus> {
-        self.final_players.iter().map(|(_, status)| *status).collect()
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ClientStatus {
     Won,
     Lost,
@@ -95,7 +89,7 @@ impl Referee {
         let Referee { players, phase } = self;
 
         let final_players = players.into_iter().map(|(id, client)| {
-            (client, if client.is_kicked() {
+            let status = if client.is_kicked() {
                 ClientStatus::Kicked
             } else if phase.get_state().winning_players.as_ref()
                     .map_or(false, |winning_players| winning_players.contains(&id)) {
@@ -103,7 +97,8 @@ impl Referee {
                 ClientStatus::Won
             } else {
                 ClientStatus::Lost
-            })
+            };
+            (client, status)
         }).collect();
 
         GameResult {
@@ -256,6 +251,10 @@ mod tests {
         }
     }
 
+    fn final_statuses(result: &GameResult) -> Vec<ClientStatus> {
+        result.final_players.iter().map(|(_, status)| *status).collect()
+    }
+
     /// Runs a game where the first player should win if they're looking ahead enough
     /// turns. For more info on this specific game, see the explanation in
     /// client/strategy.rs, fn test_move_penguin_minmax_lookahead
@@ -270,7 +269,7 @@ mod tests {
         let board = Board::with_no_holes(3, 5, 1);
         let result = run_game(players, Some(board));
         assert!(result.final_state.is_game_over());
-        assert_eq!(result.final_statuses(), vec![Won, Lost]);
+        assert_eq!(final_statuses(&result), vec![Won, Lost]);
     }
 
     /// Runs a game that should start with no possible player moves, although
@@ -286,7 +285,7 @@ mod tests {
         let board = Board::with_no_holes(2, 4, 1);
         let result = run_game(players, Some(board));
         assert!(result.final_state.is_game_over());
-        assert_eq!(result.final_statuses(), vec![Won, Won]);
+        assert_eq!(final_statuses(&result), vec![Won, Won]);
     }
 
     // Runs a game that should end with both players winning.
@@ -301,7 +300,7 @@ mod tests {
         let board = Board::with_no_holes(4, 4, 1);
         let result = run_game(players, Some(board));
         assert!(result.final_state.is_game_over());
-        assert_eq!(result.final_statuses(), vec![Won, Won]);
+        assert_eq!(final_statuses(&result), vec![Won, Won]);
     }
 
     /// Runs a game with one cheating player who should get kicked from the game,
@@ -316,7 +315,7 @@ mod tests {
         ];
         
         let result = run_game(players_cheater_second, None);
-        assert_eq!(result.final_statuses(), vec![Won, Kicked]);
+        assert_eq!(final_statuses(&result), vec![Won, Kicked]);
     }
 
     #[test]
@@ -327,7 +326,7 @@ mod tests {
             Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
         ];
         let result = run_game(players_cheater_first, None);
-        assert_eq!(result.final_statuses(), vec![Kicked, Won, Kicked]);
+        assert_eq!(final_statuses(&result), vec![Kicked, Won, Kicked]);
     }
 
     #[test]
@@ -338,6 +337,6 @@ mod tests {
             Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
         ];
         let result = run_game(players_cheater_first, None);
-        assert_eq!(result.final_statuses(), vec![Kicked, Kicked, Kicked]);
+        assert_eq!(final_statuses(&result), vec![Kicked, Kicked, Kicked]);
     }
 }
