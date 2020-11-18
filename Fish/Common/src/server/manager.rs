@@ -54,9 +54,14 @@ enum Bracket {
 pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientStatus> {
     let mut results = BTreeMap::new();
 
-    let tournament_clients = clients.into_iter().enumerate().map(|(i, client)|
-        TournamentClient { client, id: ClientId(i) }
-    ).collect();
+    let tournament_clients = clients.into_iter().enumerate().map(|(i, client)| {
+        let id = ClientId(i);
+        // Clients win by default until they lose a game or are kicked.
+        // This means for the tournament of a single player, they win by default
+        // even though they played 0 games
+        results.insert(id, ClientStatus::Won);
+        TournamentClient { client, id }
+    }).collect();
 
     run_tournament_rec(tournament_clients, board, None, &mut results);
     results.values().copied().collect()
@@ -132,23 +137,28 @@ fn next_bracket(clients: Vec<TournamentClient>, previous_player_count: Option<us
 /// 
 /// The given list of players is assumed to be sorted in ascending age order. This function will panic if the initial list of players
 /// does not contain enough players to form a single game.
-fn create_player_groupings(mut players: Vec<TournamentClient>) -> Vec<PlayerGrouping> {
+fn create_player_groupings(mut clients: Vec<TournamentClient>) -> Vec<PlayerGrouping> {
     let mut groups = vec![];
-    let mut players_per_game = gamestate::MAX_PLAYERS_PER_GAME;
+    let mut clients_per_game = gamestate::MAX_PLAYERS_PER_GAME;
 
-    while !players.is_empty() {
-        if players.len() < players_per_game {
-            if !groups.is_empty() && players_per_game > gamestate::MIN_PLAYERS_PER_GAME {
+    while !clients.is_empty() {
+        if clients.len() < gamestate::MAX_PLAYERS_PER_GAME {
+            if !groups.is_empty() && clients_per_game > gamestate::MIN_PLAYERS_PER_GAME {
                 // backtrack
-                players.append(&mut groups.pop().unwrap());
-                players_per_game -= 1;
+                clients.append(&mut groups.pop().unwrap());
+                clients_per_game -= 1;
+
+            } else if clients.len() >= gamestate::MIN_PLAYERS_PER_GAME {
+                // Enough clients for one more game, push them all
+                groups.push(clients);
+                clients = vec![];
             } else {
-                // Can't backtrack - not enough players to form a single game or we're already
+                // Can't backtrack - not enough clients to form a single game or we're already
                 // at the minimum number of players
-                panic!("Not enough players to create 1 more group: #groups = {}, #remaining-players = {}", groups.len(), players.len());
+                panic!("Not enough players to create 1 more group: #groups = {}, #remaining-players = {}", groups.len(), clients.len());
             }
         } else {
-            groups.push(util::make_n(players_per_game, |_| players.remove(0)));
+            groups.push(util::make_n(clients_per_game, |_| clients.remove(0)));
         }
     }
 
@@ -259,9 +269,8 @@ mod tests {
     #[test]
     fn test_tournament_no_players() { 
         let board = Board::with_no_holes(2, 4, 1);
-
         let statuses = run_tournament(vec![], Some(board));
-        assert_eq!(statuses, vec![ClientStatus::Won]);
+        assert_eq!(statuses, vec![]);
     }
 
     #[test]
