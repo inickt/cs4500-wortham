@@ -292,13 +292,16 @@ mod tests {
     /// Player 2 will be the winner.
     #[test]
     fn test_run_bad_round() {
-        let mut players: Vec<Client> = util::make_n(4, |_|
+        let players: Vec<Client> = vec![
+            Client::InHouseAI(make_cheating_player()),
+            Client::InHouseAI(make_simple_strategy_player()),
+            Client::InHouseAI(make_simple_strategy_player()),
             Client::InHouseAI(make_simple_strategy_player())
-        );
+        ];
 
-        players[0] = Client::InHouseAI(make_cheating_player());
         let holes = vec![BoardPosn::from((0, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
         let board = Board::with_holes(4, 3, holes, 1);
+
         let statuses = run_tournament(players, Some(board));
         let mut winners = vec![ClientStatus::Lost; 4];
         winners[0] = ClientStatus::Kicked;
@@ -315,6 +318,8 @@ mod tests {
             Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy())
         );
 
+        // Only 8 spaces to place penguins with a total of 8 penguins in the game.
+        // No one can move so everyone has the same score and everyone wins.
         let board = Board::with_no_holes(2, 4, 1);
         let statuses = run_tournament(players, Some(board));
         assert_eq!(statuses, vec![ClientStatus::Won; 8]);
@@ -322,7 +327,6 @@ mod tests {
 
     #[test]
     fn test_tournament_ends_when_too_few_players_for_single_game() { 
-
         // The only case where there are too few players (except for when there are none) is when there is only 1 player.
         let players = vec![
             Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),

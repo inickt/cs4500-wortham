@@ -59,6 +59,9 @@ pub enum ClientStatus {
 /// when a player (or multiple) have won. Check out Planning/player-protocol.md
 /// for more information on the Fish game.
 /// 
+/// Players will know the game has started when the referee sends each player
+/// the initial game state before the first turn.
+/// 
 /// Returns the winning players of the game
 pub fn run_game(players: Vec<Client>, board: Option<Board>) -> GameResult {
     let board = board.unwrap_or(Board::with_no_holes(5, 5, 3));
