@@ -101,6 +101,7 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
         for (i, (client, status)) in game_results.final_players.into_iter().enumerate() {
             let id = ClientId(first_id.0 + i);
             results.insert(id, status);
+            println!("{:?}", status);
             if status == ClientStatus::Won {
                 winners.push(TournamentClient { client, id });
             }
@@ -172,6 +173,7 @@ mod tests {
     use crate::client::player::InHousePlayer;
     use crate::common::gamestate::GameState;
     use crate::common::tile::TileId;
+    use crate::common::boardposn::BoardPosn;
     use crate::common::penguin::PenguinId;
     use crate::common::game_tree::GameTree;
     use crate::common::action::{Placement, Move};
@@ -201,7 +203,7 @@ mod tests {
         }
 
         fn find_move(&mut self, _game: &mut GameTree) -> Move {
-            Move::new(PenguinId(0), TileId(0))
+            Move::new(PenguinId(0), TileId(11))
         }
     }
 
@@ -216,38 +218,28 @@ mod tests {
     }
 
     /// Run a full tournament of fish, with 8 players and a total of 2 rounds. The initial board after penguins are placed looks as follows:
-    /// p1    p2    p3    p4    p1
-    ///    p2    p3    p4    3     3
-    /// 3     3     3     3     3
-    ///    3     3     3     3     3
-    /// 3     3     3     3     3
+    /// p1    p2    p3    p4 
+    ///    p1    p2    p3    p4
+    /// 1     x     x     x 
     ///
-    /// Where there are 3 fish per tile.
+    /// Where there are 1 fish per tile, and x denotes a removed tile.
     ///
     /// After round 1, the board looks as follows:
-    /// x     x     x     x     x
-    ///    x     x     x     x     x
-    /// x     x     x     p4    x
-    ///    p2    x     p3    x     x
-    /// p1    p2    p3    p4    p1
+    /// p1    p2    p3    p4 
+    ///    x     p2    p3    p4
+    /// p1    x     x     x 
     /// 
     /// Player 1 of each individual game will be the winner. This will correspond to players 1 and 5 of the tournament.
     ///
     /// After the placement phase, the board at round 2 looks as follows:
-    /// p1    p2    p1    p2    p1
-    ///    p2    p1    p2    3     3
-    /// 3     3     3     3     3
-    ///    3     3     3     3     3
-    /// 3     3     3     3     3
-    ///
-    /// Where there are 3 fish per tile.
+    /// p1    p2    p1    p2
+    ///    p1    p2    p1    p2
+    /// 1     x     x     x 
     ///
     /// After round 2, the board looks as follows:
-    /// x     x     x     x     x
-    ///    x     x     x     x     x
-    /// x     x     x     x     x
-    ///    p2    x     p1    x     p1
-    /// p1    p2    p1    p2    p2
+    /// p1    p2    p1    p2
+    ///    x     p2    p1    p2
+    /// p1     x     x     x 
     ///
     /// Thus, player 1 of the tournament will be the winner.
     ///
@@ -260,7 +252,8 @@ mod tests {
             Client::InHouseAI(make_simple_strategy_player())
         );
 
-        let board = Board::with_no_holes(5, 5, 2);
+        let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
+        let board = Board::with_holes(4, 3, holes, 1);
         let statuses = run_tournament(players, Some(board));
         let mut winners = vec![ClientStatus::Lost; 8];
         winners[0] = ClientStatus::Won;
@@ -274,49 +267,40 @@ mod tests {
 
     // TODO: test when a winning player doesn't respond and gets turned into a losing player
 
-    /// Run a full tournament of fish, with 8 players and a total of 2 rounds. This is the same as the test for
-    /// `test_run_tournament`, except the second player is a cheating player who is removed upon its first attempt
-    /// to move a penguin.
+    /// Run a round of fish with 4 players where the first player is attempting to cheat.
     ///
     /// The initial board after penguins are placed looks as follows:
-    /// p1    p2    p3    p4    p1
-    ///    p2    p3    p4    3     3
-    /// 3     3     3     3     3
-    ///    3     3     3     3     3
-    /// 3     3     3     3     3
+    /// p1    p2    p3    p4 
+    ///    p1    p2    p3    p4
+    /// x     1     x     x 
     ///
-    /// Where there are 3 fish per tile.
+    /// Where there are 1 fish per tile, and x denotes a removed tile.
     ///
-    /// Player 2 will be kicked upon its first move. The board will then look as follows:
-    /// p1    x     p3    p4    p1
-    ///    x     p3    p4    3     3
-    /// p1    3     3     3     3
-    ///    3     3     3     3     3
-    /// 3     3     3     3     3
+    /// Player 1 will be kicked upon its first move. The board will then look as follows:
+    /// x    p2    p3    p4 
+    ///    x    p2    p3    p4
+    /// x    1     x     x 
     ///
-    /// After round 1, the board looks as follows:
-    /// x     x     x     x     x
-    ///    x     x     x     p4    x
-    /// x     x     x     x     x
-    ///    x     x     x     x     p1
-    /// p1    p3    p3    p4    x 
+    /// At the end of the round, the board looks as follows:
+    /// x    x     p3    p4 
+    ///    x    p2    p3    p4
+    /// x    p2     x     x 
     /// 
-    /// Player 1 will be the winner. Everythign past this point is the same as the test for `test_run_tournament`.
+    /// Player 2 will be the winner.
     #[test]
     fn test_run_bad_round() {
-        let mut players: Vec<Client> = util::make_n(8, |_|
+        let mut players: Vec<Client> = util::make_n(4, |_|
             Client::InHouseAI(make_simple_strategy_player())
         );
 
-        // make player 2 of the first game a cheating player
-        players[1] = Client::InHouseAI(make_cheating_player());
-        
-        let board = Board::with_no_holes(5, 5, 2);
+        players[0] = Client::InHouseAI(make_cheating_player());
+        let holes = vec![BoardPosn::from((0, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
+        let board = Board::with_holes(4, 3, holes, 1);
         let statuses = run_tournament(players, Some(board));
-        let mut results = vec![ClientStatus::Lost; 8];
-        results[0] = ClientStatus::Won;
-        results[1] = ClientStatus::Kicked;
-        assert_eq!(statuses, results);
+        let mut winners = vec![ClientStatus::Lost; 4];
+        winners[0] = ClientStatus::Kicked;
+        winners[1] = ClientStatus::Won;
+        assert_eq!(statuses, winners);
     }
 
     /// Partition 8 players into two games that both result in all winners. At the end of this test
