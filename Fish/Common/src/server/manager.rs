@@ -49,6 +49,9 @@ enum Bracket {
 /// Examples of post-game statistics may include win/loss count
 /// of each player, total or average scores of each player, etc.
 /// 
+/// Players should expect a tournament to begin when they first 
+/// receive a game state from the referee managing their round.
+/// 
 /// It is assumed that the given list of players should not have any
 /// Kicked clients. 
 pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientStatus> {
