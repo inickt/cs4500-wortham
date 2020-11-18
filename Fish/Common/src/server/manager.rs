@@ -354,10 +354,15 @@ mod tests {
         assert_eq!(statuses, winners);
     }
 
+    /// Test a tournament where players need to be reallocated in order to ensure that there are enough players in each game.
+    /// Assume a list of players [1, 2, 3, 4, 5]. The final allocation of the games should be [1, 2] and [3, 4, 5].
+    /// 
+    /// The game for the 2 player group is the same as in the second round of `test_run_tournament` and will result in a winnner for player 1.
+    /// 
+    /// 
     #[test]
     fn test_allocate_backtracking() {
-        // Test allocating 5 Clients
-        // Backtrack from [4, 1] to [3, 2]
+
 
     }
 }
