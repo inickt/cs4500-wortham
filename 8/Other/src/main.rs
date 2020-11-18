@@ -49,7 +49,7 @@ fn main() {
     let player_results = referee::run_game(players, Some(board)).final_players;
 
     let mut winning_players = player_results.iter().zip(description.players.iter())
-        .filter(|(result, _)| *result == &referee::ClientStatus::Won)
+        .filter(|(result, _)| result.1 == referee::ClientStatus::Won)
         .map(|(_, desc)| &desc.name)
         .collect::<Vec<_>>();
         

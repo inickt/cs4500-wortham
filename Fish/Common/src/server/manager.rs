@@ -50,7 +50,12 @@ enum Bracket {
 /// of each player, total or average scores of each player, etc.
 /// 
 /// Players should expect a tournament to begin when they first 
-/// receive a game state from the referee managing their round.
+/// receive a game state from the referee managing their first round.
+/// 
+/// When the tournament finishes, all active players (i.e. those who are not
+/// kicked) are notified as to whether they won or lost. Winners who fail to
+/// accept this message are converted to players who lost before the final list
+/// of statuses is returned.
 /// 
 /// It is assumed that the given list of players should not have any
 /// Kicked clients. 
@@ -68,6 +73,9 @@ pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientS
 
     run_tournament_rec(tournament_clients, board, None, &mut results);
     results.values().copied().collect()
+
+    // TODO: Must send message to all clients saying who won.
+    // winners that fail to accept become losers
 }
 
 /// Performs the recursion for run_tournament, keeping track of the number of winners

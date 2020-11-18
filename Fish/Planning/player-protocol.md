@@ -37,12 +37,6 @@ Repo: atlanta
 be sent when a player has unplaced penguins. The player that will place
 the penguin is determined by the TCP connection info of the client that
 sent this message. If the placement is invalid, that player will be kicked from the
-
-## Possible Player->Server Messages
-1. PlacePenguin: Places an unused penguin on the given tile. Can only
-be sent when a player has unplaced penguins. The player that will place
-the penguin is determined by the TCP connection info of the client that
-sent this message. If the placement is invalid, that player will be kicked from the
 game and have all their penguins removed.
 ```json
 {
@@ -79,15 +73,59 @@ a gamestate with the `gamestate.current_turn` matching the client's PlayerId, it
 that client's turn and they should then take their turn by sending a PlacePenguin or
 MovePenguin message.
 
+The full gamestate message is:
 ```json
 {
-    "type": "NewGameState",
-    "state": GameState
+    "board": Board,
+    "players": [{ "0": PlayerId, "1": Player }, ...],  // Invariant: length is between 2 and 4 inclusive
+    "turn_order": [PlayerId, ...],  // Invariant: length is between 2 and 4 inclusive
+    "current_turn": PlayerId,
+    "winning_players": [PlayerId, ...] | null
 }
+```
 
-The precise JSON spec of the serialized GameState is non-final and is thus not listed here
-as it is subject to change. Players using the Fish client as a rust library may freely use
-the provided Serialize/Deserialize impls for GameState. Otherwise, players using only
-the json interface to communicate may wish to take in an arbitrary json value to make sure
-they're compatible with any GameState json given by the fish game server.
+Note that the `[Elem, ...]` syntax above describes a json array where each element is an `Elem`.
+
+With PlayerId = `number`
+and PenguinId = `number`
+and TileId = `number`
+and Board =
+```json
+{
+    "tiles": [Tile, ...],
+    "width": number,  // Number of columns this board has
+    "height": number  // Number of rows this board has
+}
+```
+
+and Tile =
+```json
+{
+    tile_id: TileId,
+    fish: number,
+
+    northwest: TileId | null,
+    north: TileId | null,
+    northeast: TileId | null,
+    southwest: TileId | null,
+    south: TileId | null,
+    southeast: TileId | null,
+}
+```
+
+and Player =
+```json
+{
+    "player_id": PlayerId,
+    "color": "blue" | "green" | "pink" | "purple",
+    "penguins": [Penguin, ...]
+}
+```
+
+and Penguin =
+```json
+{
+    "penguin_id": PenguinId,
+    "tile": TileId | null,
+}
 ```

@@ -61,7 +61,6 @@ pub struct GameState {
     pub players: BTreeMap<PlayerId, Player>,
     pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game, unless a player is kicked
     pub current_turn: PlayerId,
-    pub spectator_count: usize, // simple count so that players can see their audience size
     pub winning_players: Option<Vec<PlayerId>>, // will be None until the game ends
 }
 
@@ -89,7 +88,6 @@ impl GameState {
             players,
             turn_order,
             current_turn,
-            spectator_count: 0,
             winning_players: None,
         }
     }
