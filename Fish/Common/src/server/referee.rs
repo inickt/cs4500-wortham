@@ -11,6 +11,9 @@ use crate::common::player::PlayerId;
 
 use crate::server::serverclient::Client;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 /// A referee is in charge of starting, running, and managing a game of fish.
 /// This entails looping until the game is over and on each turn sending the
 /// full gamestate to all player's then getting the action of the current
@@ -27,7 +30,9 @@ use crate::server::serverclient::Client;
 struct Referee {
     /// Client input/output stream data, indexed on GameState's PlayerId.
     /// This Vec is in turn_order for each player.
-    players: Vec<(PlayerId, Client)>,
+    /// Each player is an Rc<RefCell<Client>> because the clients are mutably
+    /// shared with the tournament component.
+    players: Vec<(PlayerId, Rc<RefCell<Client>>)>,
 
     /// The state of current game, separated by the current phase it is in.
     phase: GamePhase,
@@ -39,7 +44,7 @@ pub struct GameResult {
     /// This list is in the same order and of the same length
     /// as the Referee's original players list and turn_order. So, each entry
     /// directly corresponds to the game outcome for a particular player.
-    pub final_players: Vec<(Client, ClientStatus)>,
+    pub final_players: Vec<ClientStatus>,
 
     /// This is the final state of the game, which may be used to delve
     /// into statistics detail about each player, such as their score
@@ -64,8 +69,26 @@ pub enum ClientStatus {
 /// 
 /// Returns the winning players of the game
 pub fn run_game(players: Vec<Client>, board: Option<Board>) -> GameResult {
+    let players: Vec<_> = players.into_iter()
+        .map(|player| Rc::new(RefCell::new(player))).collect();
+    run_game_shared(&players, board)
+}
+
+/// Runs a game with a Vec of mutably shared players so that players
+/// isn't consumed when the game is over.
+///
+/// Runs a complete game of Fish, setting up the board and
+/// waiting for player input for gameplay to occur, and terminating
+/// when a player (or multiple) have won. Check out Planning/player-protocol.md
+/// for more information on the Fish game.
+/// 
+/// Players will know the game has started when the referee sends each player
+/// the initial game state before the first turn.
+/// 
+/// Returns the winning players of the game
+pub fn run_game_shared(players: &[Rc<RefCell<Client>>], board: Option<Board>) -> GameResult {
     let board = board.unwrap_or(Board::with_no_holes(5, 5, 3));
-    let mut referee = Referee::new(players, board);
+    let mut referee = Referee::new(players.to_vec(), board);
 
     while !referee.is_game_over() {
         referee.send_gamestate_to_all_players();
@@ -76,7 +99,7 @@ pub fn run_game(players: Vec<Client>, board: Option<Board>) -> GameResult {
 }
 
 impl Referee {
-    fn new(players: Vec<Client>, board: Board) -> Referee {
+    fn new(players: Vec<Rc<RefCell<Client>>>, board: Board) -> Referee {
         let state = GameState::new(board, players.len());
         let players = state.turn_order.iter().copied().zip(players.into_iter()).collect();
         let phase = GamePhase::PlacingPenguins(state);
@@ -92,7 +115,7 @@ impl Referee {
         let Referee { players, phase } = self;
 
         let final_players = players.into_iter().map(|(id, client)| {
-            let status = if client.is_kicked() {
+            if client.borrow().is_kicked() {
                 ClientStatus::Kicked
             } else if phase.get_state().winning_players.as_ref()
                     .map_or(false, |winning_players| winning_players.contains(&id)) {
@@ -100,8 +123,7 @@ impl Referee {
                 ClientStatus::Won
             } else {
                 ClientStatus::Lost
-            };
-            (client, status)
+            }
         }).collect();
 
         GameResult {
@@ -119,7 +141,7 @@ impl Referee {
             let serialized = serde_json::to_string(&self.phase.get_state()).unwrap();
 
             // Write to the player and if there was an error in doing so, kick them.
-            if let Err(_) = player.send(serialized.as_bytes()) {
+            if let Err(_) = player.borrow_mut().send(serialized.as_bytes()) {
                 disconnected_players.push(*player_id);
             }
         }
@@ -184,7 +206,7 @@ impl Referee {
     fn get_player_action(&mut self) -> Option<Action> {
         let current_player_id = &self.phase.current_turn();
         let current_player = &mut self.players.iter_mut().find(|(id, _)| id == current_player_id)?.1;
-        current_player.get_action()
+        current_player.borrow_mut().get_action()
     }
 
     /// Kick the given player from the game, removing all their penguins and
@@ -194,14 +216,14 @@ impl Referee {
         self.phase.get_state_mut().remove_player(player);
         self.players.iter_mut()
             .find(|(id, _)| *id == player)
-            .map(|(_, client)| *client = Client::Kicked);
+            .map(|(_, client)| *client.borrow_mut() = Client::Kicked);
 
         // Must manually update after kicking a player to update the tree of valid moves in the game
         // tree, if needed
         self.phase.update_from_gamestate(self.phase.get_state().clone());
 
         // The game ends early if all players are kicked
-        if self.players.iter().all(|(_, client)| client.is_kicked()) {
+        if self.players.iter().all(|(_, client)| client.borrow().is_kicked()) {
             self.phase = GamePhase::Done(self.phase.get_state().clone());
         }
     }
@@ -259,10 +281,6 @@ mod tests {
         }
     }
 
-    fn final_statuses(result: &GameResult) -> Vec<ClientStatus> {
-        result.final_players.iter().map(|(_, status)| *status).collect()
-    }
-
     /// Runs a game where the first player should win if they're looking ahead enough
     /// turns. For more info on this specific game, see the explanation in
     /// client/strategy.rs, fn test_move_penguin_minmax_lookahead
@@ -277,7 +295,7 @@ mod tests {
         let board = Board::with_no_holes(3, 5, 1);
         let result = run_game(players, Some(board));
         assert!(result.final_state.is_game_over());
-        assert_eq!(final_statuses(&result), vec![Won, Lost]);
+        assert_eq!(result.final_players, vec![Won, Lost]);
     }
 
     /// Runs a game that should start with no possible player moves, although
@@ -293,7 +311,7 @@ mod tests {
         let board = Board::with_no_holes(2, 4, 1);
         let result = run_game(players, Some(board));
         assert!(result.final_state.is_game_over());
-        assert_eq!(final_statuses(&result), vec![Won, Won]);
+        assert_eq!(result.final_players, vec![Won, Won]);
     }
 
     // Runs a game that should end with both players winning.
@@ -308,7 +326,7 @@ mod tests {
         let board = Board::with_no_holes(4, 4, 1);
         let result = run_game(players, Some(board));
         assert!(result.final_state.is_game_over());
-        assert_eq!(final_statuses(&result), vec![Won, Won]);
+        assert_eq!(result.final_players, vec![Won, Won]);
     }
 
     /// Runs a game with one cheating player who should get kicked from the game,
@@ -323,7 +341,7 @@ mod tests {
         ];
         
         let result = run_game(players_cheater_second, None);
-        assert_eq!(final_statuses(&result), vec![Won, Kicked]);
+        assert_eq!(result.final_players, vec![Won, Kicked]);
     }
 
     #[test]
@@ -334,7 +352,7 @@ mod tests {
             Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
         ];
         let result = run_game(players_cheater_first, None);
-        assert_eq!(final_statuses(&result), vec![Kicked, Won, Kicked]);
+        assert_eq!(result.final_players, vec![Kicked, Won, Kicked]);
     }
 
     #[test]
@@ -345,6 +363,6 @@ mod tests {
             Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
         ];
         let result = run_game(players_cheater_first, None);
-        assert_eq!(final_statuses(&result), vec![Kicked, Kicked, Kicked]);
+        assert_eq!(result.final_players, vec![Kicked, Kicked, Kicked]);
     }
 }
