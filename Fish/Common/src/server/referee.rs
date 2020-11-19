@@ -188,7 +188,6 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
-        println!("{:?}\n-----", self.phase.get_state());
         let move_ = self.get_player_action()?.as_move()?;
 
         match &mut self.phase {
