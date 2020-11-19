@@ -6,9 +6,13 @@
 The signup phase will be the first phase of the protocol. All signup messages must
 occur before any tournament messages are sent.
 
+![Signup Diagram](remote_signup_component.png)
+
 ### Tournament Phase
 
 After signup is finished comes the tournament phase:
+
+![Tournament Diagram](TournamentDiagram.png)
 
 # Describes the first section with English prose
 
@@ -88,7 +92,7 @@ Components of Fish.com server:
         }
         ```
 
-    - End tournament round
+    - End tournament round:
       - Informs every client in the tournament that the current tournament round
         has ended and whether that client has advanced onto the next round or not.
         This is sent after all tournament rounds except the last round when a
