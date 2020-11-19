@@ -68,20 +68,25 @@ pub struct GameState {
 impl fmt::Debug for GameState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut board_string = String::new();
-        let occupied_tiles = self.get_occupied_tiles();
 
         for y in 0..self.board.height {
             if y % 2 == 1 {
-                board_string.push_str("\t");
+                board_string.push_str("   ");
             }
             for x in 0..self.board.width {
-                match self.find_penguin_at_position(BoardPosn::from((x, y))) {
-                    Some(p) => {
-                        let player = self.players.values().find(|x| x.penguins.contains(p)).unwrap();
-                        board_string.push_str(&format!("{}\t\t", player.player_id.0));
+                let tile_string = match self.board.get_tile_id(x, y) {
+                    Some(id) => {
+                        match self.players.values().find(|player|
+                            player.penguins.iter().any(|penguin| penguin.tile_id == Some(id)))
+                        {
+                            Some(player) => format!("p{}", player.player_id.0),
+                            None => id.0.to_string(),
+                        }
                     },
-                    None => board_string.push_str("x\t\t")
+                    None => "x".to_string(),
                 };
+                board_string.push_str(&tile_string);
+                board_string.push_str("    ");
             }
             board_string.push_str("\n");
         }

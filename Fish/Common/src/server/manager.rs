@@ -155,16 +155,15 @@ fn create_player_groupings(mut clients: Vec<TournamentClient>) -> Vec<PlayerGrou
     let mut clients_per_game = gamestate::MAX_PLAYERS_PER_GAME;
 
     while !clients.is_empty() {
-        if clients.len() < gamestate::MAX_PLAYERS_PER_GAME {
-            if !groups.is_empty() && clients_per_game > gamestate::MIN_PLAYERS_PER_GAME {
-                // backtrack
-                clients.append(&mut groups.pop().unwrap());
-                clients_per_game -= 1;
-
-            } else if clients.len() >= gamestate::MIN_PLAYERS_PER_GAME {
+        if clients.len() < clients_per_game {
+            if clients.len() >= gamestate::MIN_PLAYERS_PER_GAME {
                 // Enough clients for one more game, push them all
                 groups.push(clients);
                 clients = vec![];
+            } else if !groups.is_empty() && clients_per_game > gamestate::MIN_PLAYERS_PER_GAME {
+                // backtrack
+                clients.append(&mut groups.pop().unwrap());
+                clients_per_game -= 1;
             } else {
                 // Can't backtrack - not enough clients to form a single game or we're already
                 // at the minimum number of players
@@ -284,18 +283,19 @@ mod tests {
     /// The initial board after penguins are placed looks as follows:
     /// p1    p2    p3    p4 
     ///    p1    p2    p3    p4
-    /// x     1     x     x 
+    /// x     5     x     x11 
     ///
-    /// Where there are 1 fish per tile, and x denotes a removed tile.
+    /// Where there are 1 fish per tile, x denotes a removed tile, and a number denotes the tile ID.
+    /// x11 denotes the removed tile with TileID 11 that the cheating player will always attempt to move to.
     ///
     /// Player 1 will be kicked upon its first move. The board will then look as follows:
-    /// x    p2    p3    p4 
-    ///    x    p2    p3    p4
-    /// x    1     x     x 
+    /// 0    p2    p3    p4 
+    ///    1    p2    p3    p4
+    /// x    5     x     x 
     ///
     /// At the end of the round, the board looks as follows:
-    /// x    x     p3    p4 
-    ///    x    p2    p3    p4
+    /// 0    x     p3    p4 
+    ///   p2    x    p3    p4
     /// x    p2     x     x 
     /// 
     /// Player 2 will be the winner.
@@ -309,12 +309,16 @@ mod tests {
         ];
 
         let holes = vec![BoardPosn::from((0, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
-        let board = Board::with_holes(4, 3, holes, 1);
+        let board = Board::with_holes(3, 4, holes, 1);
 
         let statuses = run_tournament(players, Some(board));
-        let mut winners = vec![ClientStatus::Lost; 4];
-        winners[0] = ClientStatus::Kicked;
-        winners[1] = ClientStatus::Won;
+        let winners = vec![
+            ClientStatus::Kicked,
+            ClientStatus::Won,
+            ClientStatus::Lost,
+            ClientStatus::Lost
+        ];
+
         assert_eq!(statuses, winners);
     }
 
@@ -372,33 +376,25 @@ mod tests {
 
     /// Test a tournament where players need to be reallocated in order to ensure that
     /// there are enough players in each game. Assume a list of players [1, 2, 3, 4, 5].
-    /// The final allocation of the games should be [1, 2] and [3, 4, 5].
-    /// 
-    /// The game for the 2 player group is the same as in the second round of `test_run_tournament`
-    /// and will result in a winnner for player 1.
-    /// 
-    /// The 3 player game initially looks as follows:
-    /// p1   p2    p3    p1 
-    ///   p2    p3    p1    p2
-    /// p3   x     x     x 
-    /// 
-    /// At which point, everyone will win.
-    /// 
-    /// At this point, players [1, 3, 4, 5] will enter the final round, which will be the same as one
-    /// of the 4 player rounds of `test_run_tournament`. Thus, player 1 will win the tournament.
+    /// The final allocation of the games should be [1, 2, 3] and [4, 5].
     #[test]
     fn test_allocate_backtracking() {
 
         // set up players
-        let players = util::make_n(5, |_|
-            Client::InHouseAI(make_simple_strategy_player())
-        );
+        let clients = util::make_n(5, |id| TournamentClient {
+            client: Client::InHouseAI(make_simple_strategy_player()),
+            id: ClientId(id)
+        });
 
-        let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
-        let board = Board::with_holes(4, 3, holes, 1);
-        let statuses = run_tournament(players, Some(board));
-        let mut winners = vec![ClientStatus::Lost; 5];
-        winners[0] = ClientStatus::Won;
-        assert_eq!(statuses, winners);
+        match next_bracket(clients, None) {
+            Bracket::Round { games } => {
+                assert_eq!(games.len(), 2);
+                assert_eq!(games[0].len(), 3);
+                assert_eq!(games[1].len(), 2);
+            },
+            Bracket::End => {
+                unreachable!("Allocate backtracking for 5 players always results in at least 1 round");
+            }
+        }
     }
 }

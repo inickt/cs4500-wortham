@@ -166,7 +166,7 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
-        println!("{}\n-----", self.phase.get_state());
+        println!("{:?}\n-----", self.phase.get_state());
         let move_ = self.get_player_action()?.as_move()?;
 
         match &mut self.phase {
@@ -195,6 +195,10 @@ impl Referee {
         self.players.iter_mut()
             .find(|(id, _)| *id == player)
             .map(|(_, client)| *client = Client::Kicked);
+
+        // Must manually update after kicking a player to update the tree of valid moves in the game
+        // tree, if needed
+        self.phase.update_from_gamestate(self.phase.get_state().clone());
 
         // The game ends early if all players are kicked
         if self.players.iter().all(|(_, client)| client.is_kicked()) {
