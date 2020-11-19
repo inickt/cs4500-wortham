@@ -7,6 +7,8 @@ use crate::common::gamestate;
 use crate::common::board::Board;
 use crate::common::util;
 
+use serde_json::json;
+
 use std::collections::BTreeMap;
 
 /// The unique Id for a given client.
@@ -34,6 +36,8 @@ enum Bracket {
     Round { games: Vec<PlayerGrouping> },
     End,
 }
+
+
 
 /// Runs a complete tournament with the given players by dividing
 /// players into Brackets and putting each PlayerGrouping into a
@@ -76,6 +80,30 @@ pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientS
 
     // TODO: Must send message to all clients saying who won.
     // winners that fail to accept become losers
+}
+
+fn notify_tournament_finished(clients: Vec<TournamentClient>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
+
+    let winners = clients.iter().zip(statuses.iter())
+        .filter(|(_, status)| **status == ClientStatus::Won)
+        .map(|(client, _)| client.id)
+        .collect::<Vec<ClientId>>();
+
+    let message = json!({
+        "type": "TournamentFinished",
+        "winners": winners
+    });
+    let serialized_msg = serde_json::to_string(&message).unwrap();
+
+    for (i, tournament_client) in clients.iter().enumerate() {
+        if let Err(_) = tournament_client.client.borrow_mut().send(serialized_msg.as_bytes()) {
+            if statuses[i] == ClientStatus::Won {
+                statuses[i] = ClientStatus::Lost;
+            }
+        }
+    }
+
+    statuses
 }
 
 /// Performs the recursion for run_tournament, keeping track of the number of winners
@@ -277,6 +305,10 @@ mod tests {
     }
 
     // TODO: test when a winning player doesn't respond and gets turned into a losing player
+    #[test]
+    fn test_notify_winning_players() {
+
+    }
 
     /// Run a round of fish with 4 players where the first player is attempting to cheat.
     ///
