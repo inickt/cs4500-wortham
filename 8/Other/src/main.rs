@@ -6,7 +6,7 @@ use fish::common::gamestate::GameState;
 use fish::common::game_tree::GameTree;
 use fish::common::action::{Move, Placement};
 use fish::server::referee;
-use fish::server::serverclient::Client;
+use fish::server::serverclient::ClientProxy;
 use fish::client::strategy;
 use fish::client::player::InHousePlayer;
 
@@ -42,11 +42,11 @@ fn main() {
     let board = Board::with_no_holes(description.row, description.column, description.fish);
 
     let players = description.players.iter().map(|player| {
-        Client::InHouseAI(InHousePlayer::new(Box::new(player.clone())))
+        ClientProxy::InHouseAI(InHousePlayer::new(Box::new(player.clone())))
     }).collect();
 
     // PlayerResult = Won | Lost | Kicked
-    let player_results = referee::run_game(players, Some(board)).final_players;
+    let player_results = referee::run_game(players, Some(board)).final_statuses;
 
     let mut winning_players = player_results.iter().zip(description.players.iter())
         .filter(|(result, _)| **result == referee::ClientStatus::Won)
