@@ -102,11 +102,9 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 {
     let mut winners = vec![];
     for group in groups {
-        //let first_id = group[0].id;
         let id_list: Vec<ClientId> = group.iter().map(|tournament_client| tournament_client.id).collect();
         let clients = group.into_iter().map(|tournament_client| tournament_client.client).collect();
 
-        println!("NEW GAME RAN");
         let game_results = referee::run_game(clients, board.clone());
 
         // Iterate through the result (Won | Lost | Kicked) of each client in the finished game
@@ -267,7 +265,7 @@ mod tests {
         );
 
         let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
-        let board = Board::with_holes(4, 3, holes, 1);
+        let board = Board::with_holes(3, 4, holes, 1);
         let statuses = run_tournament(players, Some(board));
         let mut winners = vec![ClientStatus::Lost; 8];
         winners[0] = ClientStatus::Won;
@@ -402,7 +400,5 @@ mod tests {
         let mut winners = vec![ClientStatus::Lost; 5];
         winners[0] = ClientStatus::Won;
         assert_eq!(statuses, winners);
-        
-
     }
 }

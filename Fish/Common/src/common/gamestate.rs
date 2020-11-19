@@ -56,7 +56,7 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 ///   the game is over, i.e. current_player should always have moves.
 ///   Players' turns will be skipped in turn_order if they cannot move anymore.
 /// - A GameState's game is over if there is only one player left.        //TODO: is this still correct?
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GameState {
     pub board: Board,
     pub players: BTreeMap<PlayerId, Player>,
@@ -65,19 +65,20 @@ pub struct GameState {
     pub winning_players: Option<Vec<PlayerId>>, // will be None until the game ends
 }
 
-impl fmt::Display for GameState {
+impl fmt::Debug for GameState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-
         let mut board_string = String::new();
-        for i in 0..self.board.width {
-            if i % 2 == 1 {
+        let occupied_tiles = self.get_occupied_tiles();
+
+        for y in 0..self.board.height {
+            if y % 2 == 1 {
                 board_string.push_str("\t");
             }
-            for j in 0..self.board.height {
-                match self.find_penguin_at_position(BoardPosn::from((i, j))) {
+            for x in 0..self.board.width {
+                match self.find_penguin_at_position(BoardPosn::from((x, y))) {
                     Some(p) => {
                         let player = self.players.values().find(|x| x.penguins.contains(p)).unwrap();
-                        board_string = format!("{}{}\t\t", board_string, player.player_id.0);
+                        board_string.push_str(&format!("{}\t\t", player.player_id.0));
                     },
                     None => board_string.push_str("x\t\t")
                 };
@@ -88,7 +89,6 @@ impl fmt::Display for GameState {
         write!(f, "{}", board_string)
     }
 }
-
 
 impl GameState {
     /// Create a new SharedGameState with the given game id, board, and player_count.
