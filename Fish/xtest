@@ -1,2 +1,2 @@
 #!/bin/bash
-cd Common && cargo test "$@"
+cd Common && cargo test --release "$@"
