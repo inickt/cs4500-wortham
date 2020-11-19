@@ -10,6 +10,8 @@ occur before any tournament messages are sent.
 
 After signup is finished comes the tournament phase:
 
+![Tournament Diagram](TournamentDiagram.png)
+
 # Describes the first section with English prose
 
 Remote clients will interact with the Fish.com server through a dedicated
@@ -88,7 +90,7 @@ Components of Fish.com server:
         }
         ```
 
-    - End tournament round
+    - End tournament round:
       - Informs every client in the tournament that the current tournament round
         has ended and whether that client has advanced onto the next round or not.
         This is sent after all tournament rounds except the last round when a
