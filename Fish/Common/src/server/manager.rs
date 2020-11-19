@@ -2,7 +2,7 @@
 //! which sets up games for and runs an entire tournament.
 use crate::server::referee;
 use crate::server::referee::ClientStatus;
-use crate::server::serverclient::Client;
+use crate::server::serverclient::ClientProxy;
 use crate::common::gamestate;
 use crate::common::board::Board;
 use crate::common::util;
@@ -25,7 +25,7 @@ pub struct ClientId(pub usize);
 #[derive(Clone)]
 struct TournamentClient {
     id: ClientId,
-    client: Rc<RefCell<Client>>,
+    proxy: Rc<RefCell<ClientProxy>>,
 }
 
 /// Represents a single game within a bracket, with each client in the Vec
@@ -65,7 +65,7 @@ enum Bracket {
 /// 
 /// It is assumed that the given list of players should not have any
 /// Kicked clients. 
-pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientStatus> {
+pub fn run_tournament(clients: Vec<ClientProxy>, board: Option<Board>) -> Vec<ClientStatus> {
     let mut results = BTreeMap::new();
 
     let tournament_clients = clients.into_iter().enumerate().map(|(i, client)| {
@@ -74,8 +74,8 @@ pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientS
         // This means for the tournament of a single player, they win by default
         // even though they played 0 games
         results.insert(id, ClientStatus::Won);
-        let client = Rc::new(RefCell::new(client));
-        TournamentClient { client, id }
+        let proxy = Rc::new(RefCell::new(client));
+        TournamentClient { proxy, id }
     }).collect::<Vec<_>>();
 
     run_tournament_rec(&tournament_clients, board, None, &mut results);
@@ -87,7 +87,6 @@ pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientS
 /// Notify the given clients that the tournament has finished. If a winning client fails to accept the message,
 /// then their status is changed to Lost.
 fn notify_tournament_finished(clients: Vec<TournamentClient>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
-
     let winners = clients.iter().zip(statuses.iter())
         .filter(|(_, status)| **status == ClientStatus::Won)
         .map(|(client, _)| client.id)
@@ -100,7 +99,7 @@ fn notify_tournament_finished(clients: Vec<TournamentClient>, mut statuses: Vec<
     let serialized_msg = serde_json::to_string(&message).unwrap();
 
     for (i, tournament_client) in clients.iter().enumerate() {
-        if let Err(_) = tournament_client.client.borrow_mut().send(serialized_msg.as_bytes()) {
+        if let Err(_) = tournament_client.proxy.borrow_mut().send(serialized_msg.as_bytes()) {
             if statuses[i] == ClientStatus::Won {
                 statuses[i] = ClientStatus::Lost;
             }
@@ -134,13 +133,13 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 {
     let mut winners = vec![];
     for group in groups {
-        let clients: Vec<_> = group.iter().map(|tournament_client| tournament_client.client.clone()).collect();
+        let clients: Vec<_> = group.iter().map(|tournament_client| tournament_client.proxy.clone()).collect();
 
         let game_results = referee::run_game_shared(&clients, board.clone());
 
         // Iterate through the result (Won | Lost | Kicked) of each client in the finished game
         // to update their overall tournament status
-        for (client, status) in group.iter().zip(game_results.final_players.into_iter()) {
+        for (client, status) in group.iter().zip(game_results.final_statuses.into_iter()) {
             results.insert(client.id, status);
             if status == ClientStatus::Won {
                 winners.push(client.clone());
@@ -251,19 +250,19 @@ mod tests {
     }
 
     /// Create a player that uses a SimpleStrategy
-    fn make_simple_strategy_player() -> Client {
-        Client::InHouseAI(InHousePlayer::new(Box::new(SimpleStrategy)))
+    fn make_simple_strategy_player() -> ClientProxy {
+        ClientProxy::InHouseAI(InHousePlayer::new(Box::new(SimpleStrategy)))
     }
 
     /// Creating a player that uses a cheating strategy
-    fn make_cheating_player() -> Client {
-        Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy)))
+    fn make_cheating_player() -> ClientProxy {
+        ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy)))
     }
 
-    fn make_player_fails_to_accept() -> Client {
+    fn make_player_fails_to_accept() -> ClientProxy {
         let stream = TcpStream::connect("127.0.0.1:8080").expect("Could not connect to localhost");
         stream.shutdown(Shutdown::Both).expect("Could not close TCP stream");
-        Client::Remote(PlayerConnection::new(stream))        
+        ClientProxy::Remote(PlayerConnection::new(stream))        
     }
 
 
@@ -317,11 +316,11 @@ mod tests {
     fn test_run_round() {
         let player_grouping = vec![
             util::make_n(4, |id| TournamentClient {
-                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                proxy: Rc::new(RefCell::new(make_simple_strategy_player())),
                 id: ClientId(id)
             }),
             util::make_n(4, |id| TournamentClient {
-                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                proxy: Rc::new(RefCell::new(make_simple_strategy_player())),
                 id: ClientId(id + 4)
             })
         ];
@@ -352,22 +351,22 @@ mod tests {
         let clients = vec![
             // player who will win and accept message
             TournamentClient {
-                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                proxy: Rc::new(RefCell::new(make_simple_strategy_player())),
                 id: ClientId(0)
             },
             // player that will win but fail to accept message
             TournamentClient {
-                client: Rc::new(RefCell::new(make_player_fails_to_accept())),
+                proxy: Rc::new(RefCell::new(make_player_fails_to_accept())),
                 id: ClientId(1)
             },
             // player that loses and accepts message
             TournamentClient {
-                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                proxy: Rc::new(RefCell::new(make_simple_strategy_player())),
                 id: ClientId(2)
             },
             // player that is kicked (does not do anything with message)
             TournamentClient {
-                client: Rc::new(RefCell::new(make_cheating_player())),
+                proxy: Rc::new(RefCell::new(make_cheating_player())),
                 id: ClientId(3)
             },
         ];
@@ -415,7 +414,7 @@ mod tests {
     /// Player 2 will be the winner.
     #[test]
     fn test_run_bad_round() {
-        let players: Vec<Client> = vec![
+        let players: Vec<ClientProxy> = vec![
             make_cheating_player(),
             make_simple_strategy_player(),
             make_simple_strategy_player(),
@@ -442,7 +441,7 @@ mod tests {
     fn test_tournament_ends_when_two_rounds_in_a_row_produce_same_winners() {
         // set up 8 players
         let players = util::make_n(8, |_|
-            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy())
+            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy())
         );
 
         // Only 8 spaces to place penguins with a total of 8 penguins in the game.
@@ -456,7 +455,7 @@ mod tests {
     fn test_tournament_ends_when_too_few_players_for_single_game() { 
         // The only case where there are too few players (except for when there are none) is when there is only 1 player.
         let players = vec![
-            Client::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
         ];
 
         let board = Board::with_no_holes(2, 4, 1);
@@ -494,7 +493,7 @@ mod tests {
     fn test_allocate_backtracking() {
         // set up players
         let clients: Vec<_> = util::make_n(5, |id| TournamentClient {
-            client: Rc::new(RefCell::new(make_simple_strategy_player())),
+            proxy: Rc::new(RefCell::new(make_simple_strategy_player())),
             id: ClientId(id)
         });
 
