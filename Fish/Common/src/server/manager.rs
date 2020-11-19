@@ -8,6 +8,8 @@ use crate::common::board::Board;
 use crate::common::util;
 
 use std::collections::BTreeMap;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// The unique Id for a given client.
 /// These are equal to the Client's index in the clients
@@ -17,9 +19,10 @@ pub struct ClientId(pub usize);
 
 /// Represents the client's connection info along with an
 /// id to identify that particular client across all tournament games.
+#[derive(Clone)]
 struct TournamentClient {
     id: ClientId,
-    client: Client,
+    client: Rc<RefCell<Client>>,
 }
 
 /// Represents a single game within a bracket, with each client in the Vec
@@ -68,10 +71,11 @@ pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientS
         // This means for the tournament of a single player, they win by default
         // even though they played 0 games
         results.insert(id, ClientStatus::Won);
+        let client = Rc::new(RefCell::new(client));
         TournamentClient { client, id }
-    }).collect();
+    }).collect::<Vec<_>>();
 
-    run_tournament_rec(tournament_clients, board, None, &mut results);
+    run_tournament_rec(&tournament_clients, board, None, &mut results);
     results.values().copied().collect()
 
     // TODO: Must send message to all clients saying who won.
@@ -81,14 +85,14 @@ pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientS
 /// Performs the recursion for run_tournament, keeping track of the number of winners
 /// of the previous game which is used to end the game early if it is ever equal to the
 /// number of players who won the most recent game.
-fn run_tournament_rec(clients: Vec<TournamentClient>, board: Option<Board>,
+fn run_tournament_rec(clients: &[TournamentClient], board: Option<Board>,
     previous_winner_count: Option<usize>, results: &mut BTreeMap<ClientId, ClientStatus>)
 {
     let client_count = clients.len();
     match next_bracket(clients, previous_winner_count) {
         Bracket::Round { games } => {
             let winners = run_round(games, board.clone(), results);
-            run_tournament_rec(winners, board, Some(client_count), results);
+            run_tournament_rec(&winners, board, Some(client_count), results);
         },
         Bracket::End => (),
     }
@@ -103,21 +107,19 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
     let mut winners = vec![];
     for group in groups {
         let id_list: Vec<ClientId> = group.iter().map(|tournament_client| tournament_client.id).collect();
-        let clients = group.into_iter().map(|tournament_client| tournament_client.client).collect();
+        let clients: Vec<_> = group.into_iter().map(|tournament_client| tournament_client.client).collect();
 
-        let game_results = referee::run_game(clients, board.clone());
+        let game_results = referee::run_game_shared(&clients, board.clone());
 
         // Iterate through the result (Won | Lost | Kicked) of each client in the finished game
         // to update their overall tournament status
-        for (i, (client, status)) in game_results.final_players.into_iter().enumerate() {
+        for (i, (client, status)) in clients.into_iter().zip(game_results.final_players.into_iter()).enumerate() {
             let id = id_list[i];
             results.insert(id, status);
             if status == ClientStatus::Won {
-                println!("ID {} WON", id.0);
                 winners.push(TournamentClient { client, id });
             }
         }
-        println!("ROUND DONE");
     }
     winners
 }
@@ -130,7 +132,7 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 /// 
 /// It is assumed that the given slice of players is sorted in ascending order of age. If the number
 /// of player initially given is too small to create a game, Bracket::End is returned.
-fn next_bracket(clients: Vec<TournamentClient>, previous_player_count: Option<usize>) -> Bracket {
+fn next_bracket(clients: &[TournamentClient], previous_player_count: Option<usize>) -> Bracket {
     if clients.len() < gamestate::MIN_PLAYERS_PER_GAME {
         return Bracket::End;
     }
@@ -150,9 +152,10 @@ fn next_bracket(clients: Vec<TournamentClient>, previous_player_count: Option<us
 /// 
 /// The given list of players is assumed to be sorted in ascending age order. This function will panic if the initial list of players
 /// does not contain enough players to form a single game.
-fn create_player_groupings(mut clients: Vec<TournamentClient>) -> Vec<PlayerGrouping> {
+fn create_player_groupings(clients: &[TournamentClient]) -> Vec<PlayerGrouping> {
     let mut groups = vec![];
     let mut clients_per_game = gamestate::MAX_PLAYERS_PER_GAME;
+    let mut clients = clients.to_vec();
 
     while !clients.is_empty() {
         if clients.len() < clients_per_game {
@@ -379,14 +382,13 @@ mod tests {
     /// The final allocation of the games should be [1, 2, 3] and [4, 5].
     #[test]
     fn test_allocate_backtracking() {
-
         // set up players
-        let clients = util::make_n(5, |id| TournamentClient {
-            client: Client::InHouseAI(make_simple_strategy_player()),
+        let clients: Vec<_> = util::make_n(5, |id| TournamentClient {
+            client: Rc::new(RefCell::new(Client::InHouseAI(make_simple_strategy_player()))),
             id: ClientId(id)
         });
 
-        match next_bracket(clients, None) {
+        match next_bracket(&clients, None) {
             Bracket::Round { games } => {
                 assert_eq!(games.len(), 2);
                 assert_eq!(games[0].len(), 3);
