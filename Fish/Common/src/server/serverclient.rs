@@ -2,6 +2,8 @@ use crate::server::connection::PlayerConnection;
 use crate::client::player::InHousePlayer;
 use crate::common::action::Action;
 
+use std::io::Write;
+
 use serde::Deserialize;
 
 /// The server representation of a game client. There are 1 of
@@ -43,7 +45,7 @@ impl Client {
     pub fn send(&mut self, message: &[u8]) -> Result<usize, std::io::Error> {
         match self {
             Client::Remote(connection) => {
-                unimplemented!()
+                connection.stream.write(message)
             },
             Client::InHouseAI(ai) => { 
                 ai.receive_gamestate(message);

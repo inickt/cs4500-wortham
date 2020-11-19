@@ -79,12 +79,13 @@ pub fn run_tournament(clients: Vec<Client>, board: Option<Board>) -> Vec<ClientS
     }).collect::<Vec<_>>();
 
     run_tournament_rec(&tournament_clients, board, None, &mut results);
-    results.values().copied().collect()
+    let statuses = results.values().copied().collect();
 
-    // TODO: Must send message to all clients saying who won.
-    // winners that fail to accept become losers
+    notify_tournament_finished(tournament_clients, statuses)
 }
 
+/// Notify the given clients that the tournament has finished. If a winning client fails to accept the message,
+/// then their status is changed to Lost.
 fn notify_tournament_finished(clients: Vec<TournamentClient>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
 
     let winners = clients.iter().zip(statuses.iter())
@@ -133,18 +134,16 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 {
     let mut winners = vec![];
     for group in groups {
-        let id_list: Vec<ClientId> = group.iter().map(|tournament_client| tournament_client.id).collect();
-        let clients: Vec<_> = group.into_iter().map(|tournament_client| tournament_client.client).collect();
+        let clients: Vec<_> = group.iter().map(|tournament_client| tournament_client.client.clone()).collect();
 
         let game_results = referee::run_game_shared(&clients, board.clone());
 
         // Iterate through the result (Won | Lost | Kicked) of each client in the finished game
         // to update their overall tournament status
-        for (i, (client, status)) in clients.into_iter().zip(game_results.final_players.into_iter()).enumerate() {
-            let id = id_list[i];
-            results.insert(id, status);
+        for (client, status) in group.iter().zip(game_results.final_players.into_iter()) {
+            results.insert(client.id, status);
             if status == ClientStatus::Won {
-                winners.push(TournamentClient { client, id });
+                winners.push(client.clone());
             }
         }
     }
@@ -221,6 +220,9 @@ mod tests {
     use crate::client::strategy::Strategy;
     use crate::client::strategy::find_minmax_move;
     use crate::client::strategy::find_zigzag_placement;
+    use crate::server::connection::PlayerConnection;
+
+    use std::net::{TcpStream, TcpListener, Shutdown};
 
     /// A simple strategy for testing that works similarly to ZigZagMinMaxStrategy, except only has a lookahead of 1
     pub struct SimpleStrategy;
@@ -249,14 +251,21 @@ mod tests {
     }
 
     /// Create a player that uses a SimpleStrategy
-    fn make_simple_strategy_player() -> InHousePlayer {
-        InHousePlayer::new(Box::new(SimpleStrategy))
+    fn make_simple_strategy_player() -> Client {
+        Client::InHouseAI(InHousePlayer::new(Box::new(SimpleStrategy)))
     }
 
     /// Creating a player that uses a cheating strategy
-    fn make_cheating_player() -> InHousePlayer {
-        InHousePlayer::new(Box::new(CheatingStrategy))
+    fn make_cheating_player() -> Client {
+        Client::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy)))
     }
+
+    fn make_player_fails_to_accept() -> Client {
+        let stream = TcpStream::connect("127.0.0.1:8080").expect("Could not connect to localhost");
+        stream.shutdown(Shutdown::Both).expect("Could not close TCP stream");
+        Client::Remote(PlayerConnection::new(stream))        
+    }
+
 
     /// Run a full tournament of fish, with 8 players and a total of 2 rounds. The initial board after penguins are placed looks as follows:
     /// p1    p2    p3    p4 
@@ -290,7 +299,7 @@ mod tests {
         // make sure to test tournaments with > 2 rounds
         // set up players
         let players = util::make_n(8, |_|
-            Client::InHouseAI(make_simple_strategy_player())
+            make_simple_strategy_player()
         );
 
         let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
@@ -301,15 +310,86 @@ mod tests {
         assert_eq!(statuses, winners);
     }
 
+    /// Test the running of a single tournament round. The round is the same as the first round of
+    /// `test_run_tournament`. As such, players with IDs 0 and 4 (i.e. the first player of each individual
+    /// Fish game) will win, and all other players will lose.
     #[test]
     fn test_run_round() {
-        // TODO
+        let player_grouping = vec![
+            util::make_n(4, |id| TournamentClient {
+                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                id: ClientId(id)
+            }),
+            util::make_n(4, |id| TournamentClient {
+                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                id: ClientId(id + 4)
+            })
+        ];
+
+        let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
+        let board = Board::with_holes(3, 4, holes, 1);
+        let mut results = BTreeMap::new();
+       
+        let winners = run_round(player_grouping, Some(board), &mut results);
+
+        assert_eq!(winners.len(), 2);
+        assert_eq!(winners[0].id.0, 0);
+        assert_eq!(winners[1].id.0, 4);
     }
 
-    // TODO: test when a winning player doesn't respond and gets turned into a losing player
+    /// Test that tournament clients can be successfully notified of the end of a tournament. This test also checks that
+    /// winning players who fail to respond to this message are made into losing players. The test assumes that a tournament
+    /// returned a list of 4 player clients, such that the first two players won, the third player lost, and the fourth player
+    /// was kicked. The second player will fail to respond to the tournament finished message, and as such will become a losing player.
+    /// All other players will accept the message and will not have their statuses changed.
     #[test]
-    fn test_notify_winning_players() {
+    fn test_notify_tournament_finished() {
 
+        // mock host created so that the remote player that fails to accept the tournament end message
+        // can bind to something.
+        let _mock_host = TcpListener::bind("127.0.0.1:8080").expect("Could not create mock host");
+
+        let clients = vec![
+            // player who will win and accept message
+            TournamentClient {
+                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                id: ClientId(0)
+            },
+            // player that will win but fail to accept message
+            TournamentClient {
+                client: Rc::new(RefCell::new(make_player_fails_to_accept())),
+                id: ClientId(1)
+            },
+            // player that loses and accepts message
+            TournamentClient {
+                client: Rc::new(RefCell::new(make_simple_strategy_player())),
+                id: ClientId(2)
+            },
+            // player that is kicked (does not do anything with message)
+            TournamentClient {
+                client: Rc::new(RefCell::new(make_cheating_player())),
+                id: ClientId(3)
+            },
+        ];
+
+        // initial statuses reported by tournament manager
+        let statuses = vec![
+            ClientStatus::Won,
+            ClientStatus::Won,
+            ClientStatus::Lost,
+            ClientStatus::Kicked
+        ];
+
+        let new_statuses = notify_tournament_finished(clients, statuses);
+
+        let new_statuses_expected = vec![
+            ClientStatus::Won,
+            ClientStatus::Lost,
+            ClientStatus::Lost,
+            ClientStatus::Kicked
+        ];
+
+        assert_eq!(new_statuses, new_statuses_expected);
     }
 
     /// Run a round of fish with 4 players where the first player is attempting to cheat.
@@ -336,10 +416,10 @@ mod tests {
     #[test]
     fn test_run_bad_round() {
         let players: Vec<Client> = vec![
-            Client::InHouseAI(make_cheating_player()),
-            Client::InHouseAI(make_simple_strategy_player()),
-            Client::InHouseAI(make_simple_strategy_player()),
-            Client::InHouseAI(make_simple_strategy_player())
+            make_cheating_player(),
+            make_simple_strategy_player(),
+            make_simple_strategy_player(),
+            make_simple_strategy_player()
         ];
 
         let holes = vec![BoardPosn::from((0, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
@@ -396,10 +476,9 @@ mod tests {
     /// `test_run_tournament`. Player 1 will win this tournament.
     #[test]
     fn test_tournament_ends_when_partipant_count_is_small_enough_to_have_one_final_game() {
-
         let players = vec![
-            Client::InHouseAI(make_simple_strategy_player()),
-            Client::InHouseAI(make_simple_strategy_player()),
+            make_simple_strategy_player(),
+            make_simple_strategy_player(),
         ];
         
         let board = Board::with_no_holes(5, 5, 2);
@@ -415,7 +494,7 @@ mod tests {
     fn test_allocate_backtracking() {
         // set up players
         let clients: Vec<_> = util::make_n(5, |id| TournamentClient {
-            client: Rc::new(RefCell::new(Client::InHouseAI(make_simple_strategy_player()))),
+            client: Rc::new(RefCell::new(make_simple_strategy_player())),
             id: ClientId(id)
         });
 

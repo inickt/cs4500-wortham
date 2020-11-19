@@ -94,8 +94,9 @@ impl InHousePlayer {
     /// This state is automatically sent to every player and it is the player's job
     /// to recieve the gamestate via receive_gamestate()
     pub fn receive_gamestate(&mut self, bytes: &[u8]) {
-        let state = serde_json::from_slice(bytes).unwrap();
-        self.phase.update_from_gamestate(state);
+        if let Ok(state) = serde_json::from_slice(bytes) {
+            self.phase.update_from_gamestate(state);
+        }
     }
 }
 
