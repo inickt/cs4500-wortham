@@ -6,6 +6,8 @@
 The signup phase will be the first phase of the protocol. All signup messages must
 occur before any tournament messages are sent.
 
+![Signup Diagram](remote_signup_component.png)
+
 ### Tournament Phase
 
 After signup is finished comes the tournament phase:
