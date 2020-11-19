@@ -8,6 +8,7 @@ use crate::common::board::Board;
 use crate::common::util;
 
 use serde_json::json;
+use serde::Serialize;
 
 use std::collections::BTreeMap;
 use std::cell::RefCell;
@@ -16,7 +17,7 @@ use std::rc::Rc;
 /// The unique Id for a given client.
 /// These are equal to the Client's index in the clients
 /// Vec passed to run_tournament
-#[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Serialize)]
 pub struct ClientId(pub usize);
 
 /// Represents the client's connection info along with an
@@ -39,8 +40,6 @@ enum Bracket {
     Round { games: Vec<PlayerGrouping> },
     End,
 }
-
-
 
 /// Runs a complete tournament with the given players by dividing
 /// players into Brackets and putting each PlayerGrouping into a
