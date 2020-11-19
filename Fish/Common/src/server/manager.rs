@@ -102,21 +102,24 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 {
     let mut winners = vec![];
     for group in groups {
-        let first_id = group[0].id;
+        //let first_id = group[0].id;
+        let id_list: Vec<ClientId> = group.iter().map(|tournament_client| tournament_client.id).collect();
         let clients = group.into_iter().map(|tournament_client| tournament_client.client).collect();
 
+        println!("NEW GAME RAN");
         let game_results = referee::run_game(clients, board.clone());
 
         // Iterate through the result (Won | Lost | Kicked) of each client in the finished game
         // to update their overall tournament status
         for (i, (client, status)) in game_results.final_players.into_iter().enumerate() {
-            let id = ClientId(first_id.0 + i);
+            let id = id_list[i];
             results.insert(id, status);
-            println!("{:?}", status);
             if status == ClientStatus::Won {
+                println!("ID {} WON", id.0);
                 winners.push(TournamentClient { client, id });
             }
         }
+        println!("ROUND DONE");
     }
     winners
 }
@@ -232,7 +235,7 @@ mod tests {
     /// p1    p2    p3    p4 
     ///    p1    p2    p3    p4
     /// 1     x     x     x 
-    ///
+    /// 
     /// Where there are 1 fish per tile, and x denotes a removed tile.
     ///
     /// After round 1, the board looks as follows:
@@ -369,15 +372,37 @@ mod tests {
         assert_eq!(statuses, winners);
     }
 
-    /// Test a tournament where players need to be reallocated in order to ensure that there are enough players in each game.
-    /// Assume a list of players [1, 2, 3, 4, 5]. The final allocation of the games should be [1, 2] and [3, 4, 5].
+    /// Test a tournament where players need to be reallocated in order to ensure that
+    /// there are enough players in each game. Assume a list of players [1, 2, 3, 4, 5].
+    /// The final allocation of the games should be [1, 2] and [3, 4, 5].
     /// 
-    /// The game for the 2 player group is the same as in the second round of `test_run_tournament` and will result in a winnner for player 1.
+    /// The game for the 2 player group is the same as in the second round of `test_run_tournament`
+    /// and will result in a winnner for player 1.
     /// 
+    /// The 3 player game initially looks as follows:
+    /// p1   p2    p3    p1 
+    ///   p2    p3    p1    p2
+    /// p3   x     x     x 
     /// 
+    /// At which point, everyone will win.
+    /// 
+    /// At this point, players [1, 3, 4, 5] will enter the final round, which will be the same as one
+    /// of the 4 player rounds of `test_run_tournament`. Thus, player 1 will win the tournament.
     #[test]
     fn test_allocate_backtracking() {
 
+        // set up players
+        let players = util::make_n(5, |_|
+            Client::InHouseAI(make_simple_strategy_player())
+        );
+
+        let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
+        let board = Board::with_holes(4, 3, holes, 1);
+        let statuses = run_tournament(players, Some(board));
+        let mut winners = vec![ClientStatus::Lost; 5];
+        winners[0] = ClientStatus::Won;
+        assert_eq!(statuses, winners);
+        
 
     }
 }

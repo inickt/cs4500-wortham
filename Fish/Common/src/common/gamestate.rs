@@ -16,6 +16,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::fmt;
 
 use serde::{ Serialize, Deserialize };
 
@@ -62,6 +63,30 @@ pub struct GameState {
     pub turn_order: Vec<PlayerId>, // INVARIANT: turn_order never changes for a given game, unless a player is kicked
     pub current_turn: PlayerId,
     pub winning_players: Option<Vec<PlayerId>>, // will be None until the game ends
+}
+
+impl fmt::Display for GameState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+
+        let mut board_string = String::new();
+        for i in 0..self.board.width {
+            if i % 2 == 1 {
+                board_string.push_str("\t");
+            }
+            for j in 0..self.board.height {
+                match self.find_penguin_at_position(BoardPosn::from((i, j))) {
+                    Some(p) => {
+                        let player = self.players.values().find(|x| x.penguins.contains(p)).unwrap();
+                        board_string = format!("{}{}\t\t", board_string, player.player_id.0);
+                    },
+                    None => board_string.push_str("x\t\t")
+                };
+            }
+            board_string.push_str("\n");
+        }
+
+        write!(f, "{}", board_string)
+    }
 }
 
 
