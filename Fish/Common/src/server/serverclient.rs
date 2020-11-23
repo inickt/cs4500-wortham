@@ -1,13 +1,31 @@
 use crate::server::connection::PlayerConnection;
 use crate::client::player::InHousePlayer;
 use crate::common::action::Action;
+use crate::common::player::PlayerId;
 
 use std::io::Write;
-use std::sync::mpsc::channel;
-use std::thread;
-use std::time::Duration;
+use std::cell::RefCell;
+use std::rc::Rc;
 
-const TIMEOUT_SECS: u64 = 5;
+/// Represents the client's connection info along with an
+/// id to identify that particular client across all tournament games.
+#[derive(Clone)]
+pub struct Client {
+    pub id: PlayerId,
+
+    /// This is the shared, mutable reference to the ClientProxy shared
+    /// between the tournament manager and the referee components.
+    pub proxy: Rc<RefCell<ClientProxy>>,
+}
+
+impl Client {
+    pub fn new(id: usize, proxy: ClientProxy) -> Client {
+        Client {
+            id: PlayerId(id),
+            proxy: Rc::new(RefCell::new(proxy)),
+        }
+    }
+}
 
 /// The server representation of a game client. There are 1 of
 /// these per-player in a game and they are used to receive or

@@ -99,18 +99,20 @@ impl GameState {
     /// Create a new SharedGameState with the given game id, board, and player_count.
     /// This will panic if player_count is < MIN_PLAYERS_PER_GAME or > MAX_PLAYERS_PER_GAME.
     pub fn new(board: Board, player_count: usize) -> GameState {
-        assert!(player_count >= MIN_PLAYERS_PER_GAME, "Fish must be played with at least {} players!", MIN_PLAYERS_PER_GAME);
-        assert!(player_count <= MAX_PLAYERS_PER_GAME, "Fish only supports up to {} players!", MAX_PLAYERS_PER_GAME);
+        GameState::with_players(board, (0..player_count).map(PlayerId).collect())
+    }
+
+    pub fn with_players(board: Board, turn_order: Vec<PlayerId>) -> GameState {
+        assert!(turn_order.len() >= MIN_PLAYERS_PER_GAME, "Fish must be played with at least {} players!", MIN_PLAYERS_PER_GAME);
+        assert!(turn_order.len() <= MAX_PLAYERS_PER_GAME, "Fish only supports up to {} players!", MAX_PLAYERS_PER_GAME);
 
         // Each player receives 6 - N penguins, where N is the number of players
-        let penguins_per_player = PENGUIN_FACTOR - player_count; 
+        let penguins_per_player = PENGUIN_FACTOR - turn_order.len(); 
 
-        let players: BTreeMap<_, _> = util::make_n(player_count, |_| {
-            let player = Player::new(penguins_per_player);
-            (player.player_id, player)
-        });
+        let players: BTreeMap<_, _> = turn_order.iter().zip(PlayerColor::iter()).map(|(id, color)| {
+            (*id, Player::new(*id, color, penguins_per_player))
+        }).collect();
 
-        let turn_order: Vec<PlayerId> = players.keys().copied().collect(); // TODO sort by age 
         let current_turn = turn_order[0];
 
         GameState {

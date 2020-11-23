@@ -8,8 +8,7 @@ use crate::common::gamestate::GameState;
 use crate::common::gamephase::GamePhase;
 use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerId;
-
-use crate::server::serverclient::ClientProxy;
+use crate::server::serverclient::{ Client, ClientProxy };
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -30,9 +29,7 @@ use std::rc::Rc;
 struct Referee {
     /// Client input/output stream data, indexed on GameState's PlayerId.
     /// This Vec is in turn_order for each player.
-    /// Each player is an Rc<RefCell<Client>> because the clients are mutably
-    /// shared with the tournament component.
-    clients: Vec<(PlayerId, Rc<RefCell<ClientProxy>>)>,
+    clients: Vec<Client>,
 
     /// The state of current game, separated by the current phase it is in.
     phase: GamePhase,
@@ -69,8 +66,8 @@ pub enum ClientStatus {
 /// 
 /// Returns the Win,Loss,Kicked status of each player and the final GameState
 pub fn run_game(clients: Vec<ClientProxy>, board: Option<Board>) -> GameResult {
-    let clients: Vec<_> = clients.into_iter()
-        .map(|player| Rc::new(RefCell::new(player))).collect();
+    let clients: Vec<_> = clients.into_iter().enumerate()
+        .map(|(id, player)| Client::new(id, player)).collect();
     run_game_shared(&clients, board)
 }
 
@@ -86,7 +83,7 @@ pub fn run_game(clients: Vec<ClientProxy>, board: Option<Board>) -> GameResult {
 /// the initial game state before the first turn.
 /// 
 /// Returns the Win,Loss,Kicked status of each player and the final GameState
-pub fn run_game_shared(clients: &[Rc<RefCell<ClientProxy>>], board: Option<Board>) -> GameResult {
+pub fn run_game_shared(clients: &[Client], board: Option<Board>) -> GameResult {
     let board = board.unwrap_or(Board::with_no_holes(5, 5, 3));
     let mut referee = Referee::new(clients.to_vec(), board);
 
@@ -99,9 +96,9 @@ pub fn run_game_shared(clients: &[Rc<RefCell<ClientProxy>>], board: Option<Board
 }
 
 impl Referee {
-    fn new(clients: Vec<Rc<RefCell<ClientProxy>>>, board: Board) -> Referee {
-        let state = GameState::new(board, clients.len());
-        let clients = state.turn_order.iter().copied().zip(clients.into_iter()).collect();
+    fn new(clients: Vec<Client>, board: Board) -> Referee {
+        let client_ids = clients.iter().map(|client| client.id).collect();
+        let state = GameState::with_players(board, client_ids);
         let phase = GamePhase::PlacingPenguins(state);
         Referee { clients, phase }
     }
@@ -114,11 +111,11 @@ impl Referee {
     fn get_game_result(self) -> GameResult {
         let Referee { clients, phase } = self;
 
-        let final_statuses = clients.into_iter().map(|(id, client)| {
-            if client.borrow().is_kicked() {
+        let final_statuses = clients.into_iter().map(|client| {
+            if client.proxy.borrow().is_kicked() {
                 ClientStatus::Kicked
             } else if phase.get_state().winning_players.as_ref()
-                    .map_or(false, |winning_players| winning_players.contains(&id)) {
+                    .map_or(false, |winning_players| winning_players.contains(&client.id)) {
 
                 ClientStatus::Won
             } else {
@@ -137,12 +134,12 @@ impl Referee {
     /// player has disconnected and kicks them from the game, removing their penguins.
     fn send_gamestate_to_all_clients(&mut self) {
         let mut disconnected_clients = vec![];
-        for (player_id, player) in self.clients.iter_mut() {
+        for client in self.clients.iter_mut() {
             let serialized = serde_json::to_string(&self.phase.get_state()).unwrap();
 
             // Write to the player and if there was an error in doing so, kick them.
-            if let Err(_) = player.borrow_mut().send(serialized.as_bytes()) {
-                disconnected_clients.push(*player_id);
+            if let Err(_) = client.proxy.borrow_mut().send(serialized.as_bytes()) {
+                disconnected_clients.push(client.id);
             }
         }
 
@@ -203,9 +200,9 @@ impl Referee {
 
     /// Retrieves the Action of the player whose turn it currently is.
     fn get_player_action(&mut self) -> Option<Action> {
-        let current_player_id = &self.phase.current_turn();
-        let current_player = &mut self.clients.iter_mut().find(|(id, _)| id == current_player_id)?.1;
-        current_player.borrow_mut().get_action()
+        let current_player_id = self.phase.current_turn();
+        let current_player = self.clients.iter_mut().find(|client| client.id == current_player_id)?;
+        current_player.proxy.borrow_mut().get_action()
     }
 
     /// Kick the given player from the game, removing all their penguins and
@@ -214,15 +211,15 @@ impl Referee {
     fn kick_player(&mut self, player: PlayerId) {
         self.phase.get_state_mut().remove_player(player);
         self.clients.iter_mut()
-            .find(|(id, _)| *id == player)
-            .map(|(_, client)| *client.borrow_mut() = ClientProxy::Kicked);
+            .find(|client| client.id == player)
+            .map(|client| *client.proxy.borrow_mut() = ClientProxy::Kicked);
 
         // Must manually update after kicking a player to update the tree of valid moves in the game
         // tree, if needed
         self.phase.update_from_gamestate(self.phase.get_state().clone());
 
         // The game ends early if all clients are kicked
-        if self.clients.iter().all(|(_, client)| client.borrow().is_kicked()) {
+        if self.clients.iter().all(|client| client.proxy.borrow().is_kicked()) {
             self.phase = GamePhase::Done(self.phase.get_state().clone());
         }
     }
