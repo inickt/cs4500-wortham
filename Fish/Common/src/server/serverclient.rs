@@ -3,6 +3,11 @@ use crate::client::player::InHousePlayer;
 use crate::common::action::Action;
 
 use std::io::Write;
+use std::sync::mpsc::channel;
+use std::thread;
+use std::time::Duration;
+
+const TIMEOUT_SECS: u64 = 5;
 
 /// The server representation of a game client. There are 1 of
 /// these per-player in a game and they are used to receive or
@@ -16,8 +21,6 @@ pub enum ClientProxy {
 impl ClientProxy {
     /// Get an action of the given player, either waiting for a remote player
     /// or prompting an ai player to take a turn.
-    /// 
-    /// TODO: Add 1 minute timeout for remote players
     pub fn get_action(&mut self) -> Option<Action> {
         match self {
             ClientProxy::Remote(connection) => {
@@ -25,8 +28,7 @@ impl ClientProxy {
                 unimplemented!()
             },
             ClientProxy::InHouseAI(ai) => {
-                ai.take_turn();
-                serde_json::from_str(&mut ai.output_stream).ok()
+                Some(ai.take_turn())
             },
             ClientProxy::Kicked => unreachable!("It should never be a kicked player's turn"),
         }

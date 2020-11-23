@@ -20,6 +20,9 @@ pub struct Move {
     pub tile_id: TileId,
 }
 
+unsafe impl Send for Move {}
+unsafe impl Sync for Move {}
+
 impl Move {
     pub fn new(penguin_id: PenguinId, tile_id: TileId) -> Move {
         Move { penguin_id, tile_id }
@@ -40,6 +43,9 @@ pub struct Placement {
     pub tile_id: TileId,
 }
 
+unsafe impl Send for Placement {}
+unsafe impl Sync for Placement {}
+
 impl Placement {
     pub fn new(tile_id: TileId) -> Placement {
         Placement { tile_id }
@@ -50,11 +56,14 @@ impl Placement {
 /// 
 /// Used for serializing and deserializing player actions for
 /// communicating with the server.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Action {
     PlacePenguin(Placement),
     MovePenguin(Move)
 }
+
+unsafe impl Send for Action {}
+unsafe impl Sync for Action {}
 
 impl Action {
     pub fn as_placement(self) -> Option<Placement> {

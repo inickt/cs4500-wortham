@@ -1,21 +1,13 @@
 //! This file contains the implementation for an in-house AI player
 //! for the Fish game.
-use crate::common::action::{ Action, Move, Placement };
+use crate::common::action::Action;
 use crate::client::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use crate::common::gamephase::GamePhase;
 
 /// Represents the in-house AI player for the Fish game.
-/// This player holds their own GamePhase and is responsible for sending
-/// their next Placement or Move through through setting their "output_stream"
-/// to the move serialized to json.
+/// This player holds their own GamePhase and is responsible for using their strategy
+/// to determine what action to take on their turn.
 pub struct InHousePlayer {
-    /// InHousePlayers always can communicate with the server through normal
-    /// string (de)serialization, they don't need TcpStreams
-    /// 
-    /// This String gets replaced every time a new message is generated
-    /// so its only content at any point is the newest client->server message
-    pub output_stream: String,
-
     /// Contains the current phase of the game (starting, placing, moving, done),
     /// which also contains either the current GameState or GameTree depending on
     /// if we are in the Placing or Moving phase. This is the player's concept of
@@ -30,13 +22,12 @@ pub struct InHousePlayer {
 impl InHousePlayer {
     /// Creates a new AI player using the given streams.
     pub fn new(strategy: Box<dyn Strategy>) -> InHousePlayer {
-        InHousePlayer { output_stream: "".to_string(), strategy, phase: GamePhase::Starting }
+        InHousePlayer { strategy, phase: GamePhase::Starting }
     }
 
     /// Helper to create a player with the zigzag minmax strategy.
     pub fn with_zigzag_minmax_strategy() -> InHousePlayer {
         InHousePlayer {
-            output_stream: "".to_string(),
             strategy: Box::new(ZigZagMinMaxStrategy),
             phase: GamePhase::Starting
         }
@@ -45,45 +36,17 @@ impl InHousePlayer {
     /// Take a turn by sending a message to the output stream. The contents of the
     /// message depend on the current GamePhase and what the strategy dictates to do
     /// for that phase. For Starting and Done phases, the player can do nothing.
-    pub fn take_turn(&mut self) {
+    pub fn take_turn(&mut self) -> Action {
         match &mut self.phase {
-            // TODO: Should we panic when trying to take a turn in the Starting/Done phases?
-            GamePhase::Starting => (),
+            GamePhase::Starting => panic!("Called InHousePlayer::take_turn in the starting phase"),
             GamePhase::PlacingPenguins(gamestate) => {
-                let placement = self.strategy.find_placement(gamestate);
-                self.send_place_penguin_message(placement).unwrap();
+                Action::PlacePenguin(self.strategy.find_placement(gamestate))
             },
             GamePhase::MovingPenguins(gametree) => {
-                let move_ = self.strategy.find_move(gametree);
-                self.send_move_penguin_message(move_).unwrap();
+                Action::MovePenguin(self.strategy.find_move(gametree))
             },
-            GamePhase::Done(_) => (),
+            GamePhase::Done(_) => panic!("Called InHousePlayer::take_turn in the done phase"),
         }
-    }
-
-    /// Send a PlacePenguin message to the game server via the given TCP stream
-    /// telling it to place one of this player's penguins. The game server will
-    /// determine which player sent the message based off their TCP connection info.
-    /// If it is not currently that player's turn, or the placement is otherwise
-    /// invalid, then they will be kicked from the game and their penguins will
-    /// be removed from the board.
-    pub fn send_place_penguin_message(&mut self, placement: Placement) -> Result<usize, std::io::Error> { 
-        self.output_stream = serde_json::to_string(&Action::PlacePenguin(placement))?;
-        Ok(self.output_stream.len())
-    }
-
-    /// Send a MovePenguin message over tcp to tell the server to move a given
-    /// penguin to the given destination tile. If the penguin has not yet been
-    /// placed, does not belong to the current player, or the move itself is
-    /// oherwise invalid, the player will be kicked from the game.
-    /// 
-    /// The game server will determine
-    /// which player sent the message based off their TCP connection info.
-    /// If it is not currently that player's turn then they will be kicked
-    /// from the game and their penguins will be removed from the board.
-    pub fn send_move_penguin_message(&mut self, move_: Move) -> Result<usize, std::io::Error> { 
-        self.output_stream = serde_json::to_string(&Action::MovePenguin(move_))?;
-        Ok(self.output_stream.len())
     }
 
     /// Block until the server sends a game state at the start of the next turn,
@@ -105,7 +68,7 @@ impl InHousePlayer {
 mod tests {
     use super::*;
     use crate::common::tile::TileId;
-    use crate::common::penguin::PenguinId;
+    use crate::common::action::Placement;
     use crate::common::gamestate::GameState;
     use crate::client::strategy::{ tests::take_zigzag_placement, ZigZagMinMaxStrategy };
 
@@ -118,8 +81,7 @@ mod tests {
         let serialized = serde_json::to_string(&state).unwrap();
         player.receive_gamestate(serialized.as_bytes());
 
-        player.take_turn();
-        assert_eq!(&player.output_stream, "{\"PlacePenguin\":{\"tile_id\":0}}");
+        assert_eq!(player.take_turn(), Action::PlacePenguin(Placement { tile_id: TileId(0) }));
     }
 
     #[test]
@@ -135,10 +97,7 @@ mod tests {
         let serialized = serde_json::to_string(&state).unwrap();
         player.receive_gamestate(serialized.as_bytes());
 
-        player.take_turn();
-        // parse stream into move so we can easily test type and 
-        let action: Action = serde_json::from_str(&mut player.output_stream).unwrap();
-
+        let action = player.take_turn();
         assert_eq!(action.as_move().unwrap().tile_id, TileId(2));
     }
 
@@ -151,41 +110,5 @@ mod tests {
         player.receive_gamestate(serialized.as_bytes());
 
         assert_eq!(player.phase.take_state(), state);
-    }
-
-    #[test]
-    fn test_send_place_penguin_message() {
-        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
-
-        player.send_place_penguin_message(Placement::new(TileId(1))).unwrap();
-        let buffer = &player.output_stream;
-
-        assert_eq!(*buffer, String::from("{\"PlacePenguin\":{\"tile_id\":1}}"));
-
-        player.send_place_penguin_message(Placement::new(TileId(2))).unwrap();
-        let buffer = &player.output_stream;
-
-        assert_eq!(*buffer, String::from(
-            "{\"PlacePenguin\":{\"tile_id\":2}}"
-        ));
-    }
-
-    #[test]
-    fn test_send_move_penguin_message() {
-        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
-
-        player.send_move_penguin_message(Move::new(PenguinId(1), TileId(1))).unwrap();
-        let buffer = &player.output_stream;
-
-        assert_eq!(*buffer, String::from(
-            "{\"MovePenguin\":{\"penguin_id\":1,\"tile_id\":1}}"
-        ));
-
-        player.send_move_penguin_message(Move::new(PenguinId(2), TileId(2))).unwrap();
-        let buffer = &player.output_stream;
-
-        assert_eq!(*buffer, String::from(
-            "{\"MovePenguin\":{\"penguin_id\":2,\"tile_id\":2}}"
-        ));
     }
 }
