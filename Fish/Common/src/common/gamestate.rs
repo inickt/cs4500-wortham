@@ -96,12 +96,16 @@ impl fmt::Debug for GameState {
 }
 
 impl GameState {
-    /// Create a new SharedGameState with the given game id, board, and player_count.
+    /// Create a new GameState with the given board and player_count. Generates new
+    /// player ids for the number of players given.
     /// This will panic if player_count is < MIN_PLAYERS_PER_GAME or > MAX_PLAYERS_PER_GAME.
     pub fn new(board: Board, player_count: usize) -> GameState {
         GameState::with_players(board, (0..player_count).map(PlayerId).collect())
     }
 
+    /// Create a new GameState with the given board and turn_order, with the player count equal
+    /// to the number of players in turn_order.
+    /// This will panic if turn_order.len() is < MIN_PLAYERS_PER_GAME or > MAX_PLAYERS_PER_GAME.
     pub fn with_players(board: Board, turn_order: Vec<PlayerId>) -> GameState {
         assert!(turn_order.len() >= MIN_PLAYERS_PER_GAME, "Fish must be played with at least {} players!", MIN_PLAYERS_PER_GAME);
         assert!(turn_order.len() <= MAX_PLAYERS_PER_GAME, "Fish only supports up to {} players!", MAX_PLAYERS_PER_GAME);

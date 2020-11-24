@@ -45,10 +45,10 @@ enum Bracket {
 /// 
 /// It is assumed that the given list of players should not have any
 /// Kicked clients. 
-pub fn run_tournament(clients: Vec<ClientProxy>, board: Option<Board>) -> Vec<ClientStatus> {
+pub fn run_tournament(proxies: Vec<ClientProxy>, board: Option<Board>) -> Vec<ClientStatus> {
     let mut results = BTreeMap::new();
 
-    let tournament_clients = clients.into_iter().enumerate().map(|(id, client)| {
+    let clients = proxies.into_iter().enumerate().map(|(id, client)| {
         // Clients win by default until they lose a game or are kicked.
         // This means for the tournament of a single player, they win by default
         // even though they played 0 games
@@ -56,10 +56,34 @@ pub fn run_tournament(clients: Vec<ClientProxy>, board: Option<Board>) -> Vec<Cl
         Client::new(id, client)
     }).collect::<Vec<_>>();
 
-    run_tournament_rec(&tournament_clients, board, None, &mut results);
+    let clients = notify_tournament_started(&clients, &mut results);
+
+    run_tournament_rec(&clients, board, None, &mut results);
     let statuses = results.values().copied().collect();
 
-    notify_tournament_finished(tournament_clients, statuses)
+    notify_tournament_finished(clients, statuses)
+}
+
+/// Notify the given clients that the tournament has started. If a client fails to accept the message,
+/// then their status is changed to Kicked. The players that successfully accepted the starting
+/// message are returned in the same order.
+fn notify_tournament_started(clients: &[Client], results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<Client> {
+    clients.iter().filter_map(|client| {
+        let message = json!({
+            "type": "StartTournament",
+            "assigned_player_id": client.id.0,
+        });
+
+        let serialized_msg = serde_json::to_string(&message).unwrap();
+
+        match client.proxy.borrow_mut().send(serialized_msg.as_bytes()) {
+            Ok(_) => Some(client.clone()),
+            Err(_) => {
+                results.insert(client.id, ClientStatus::Kicked);
+                None
+            }
+        }
+    }).collect()
 }
 
 /// Notify the given clients that the tournament has finished. If a winning client fails to accept the message,
@@ -235,8 +259,8 @@ mod tests {
         ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy)))
     }
 
-    fn make_player_fails_to_accept() -> ClientProxy {
-        let stream = TcpStream::connect("127.0.0.1:8080").expect("Could not connect to localhost");
+    fn make_player_fails_to_accept(port: usize) -> ClientProxy {
+        let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect to localhost");
         stream.shutdown(Shutdown::Both).expect("Could not close TCP stream");
         ClientProxy::Remote(PlayerConnection::new(stream))        
     }
@@ -306,6 +330,33 @@ mod tests {
         assert_eq!(winners[1].id.0, 4);
     }
 
+    // Test that tournament clients can be notified of the tournament starting at the beginning of a
+    // tournament. This test checks that players that fail to respond to the starting message will
+    // have their status updated to be kicked from the tournament.
+    #[test]
+    fn test_notify_tournament_started() {
+        // mock host created so that the remote player that fails to accept the tournament end message
+        // can bind to something.
+        let _mock_host = TcpListener::bind("127.0.0.1:8081").expect("Could not create mock host");
+
+        let clients = vec![
+            Client::new(0, make_simple_strategy_player()), // player who will accept message
+            Client::new(1, make_player_fails_to_accept(8081)), // player that will fail to accept message
+            Client::new(2, make_simple_strategy_player()), // player that accepts message
+            Client::new(3, make_cheating_player()), // player that accepts message
+        ];
+
+        // initial statuses reported by tournament manager
+        let mut results = BTreeMap::new();
+        let good_clients = notify_tournament_started(&clients, &mut results);
+        assert_eq!(good_clients.len(), 3);
+        assert_eq!(good_clients[0].id.0, 0);
+        assert_eq!(good_clients[1].id.0, 2);
+        assert_eq!(good_clients[2].id.0, 3);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[&PlayerId(1)], ClientStatus::Kicked);
+    }
+
     /// Test that tournament clients can be successfully notified of the end of a tournament. This test also checks that
     /// winning players who fail to respond to this message are made into losing players. The test assumes that a tournament
     /// returned a list of 4 player clients, such that the first two players won, the third player lost, and the fourth player
@@ -319,7 +370,7 @@ mod tests {
 
         let clients = vec![
             Client::new(0, make_simple_strategy_player()), // player who will win and accept message
-            Client::new(1, make_player_fails_to_accept()), // player that will win but fail to accept message
+            Client::new(1, make_player_fails_to_accept(8080)), // player that will win but fail to accept message
             Client::new(2, make_simple_strategy_player()), // player that loses and accepts message
             Client::new(3, make_cheating_player()), // player that is kicked (does not do anything with message)
         ];
