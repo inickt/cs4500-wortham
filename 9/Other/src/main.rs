@@ -23,6 +23,7 @@ const TIMEOUT_SECS: u64 = 1;
 const PLAYER_USAGE: &str = "Usage:\n'place [tile_id]'\n'move [penguin_id] to [tile_id]'";
 
 fn main() {
+    // create a tournament with n - 1 ai players and 1 human controlled player
     thread::spawn(|| {
         let players = create_players();
         let game_result = run_game(players, None);
@@ -31,6 +32,7 @@ fn main() {
         println!("END GAME STATE:\n{:?}\nFINAL PLAYER STATUS:{:?}", game_result.final_state, player_result);
     });
 
+    // run a human controlled player loop
     let human_player = PlayerId(get_ai_player_count());
     let mut stream = wait_for_connection(Instant::now());
     let mut deserializer = Deserializer::from_reader(stream.try_clone().unwrap());
@@ -41,7 +43,6 @@ fn main() {
                 if game_state.current_turn == human_player {
                     let action = get_player_input();
                     let serialized = serde_json::to_string(&action).unwrap();
-                    // let mut stream = wait_for_connection(Instant::now());
                     stream.write(serialized.as_bytes()).unwrap();
                 }
             },
@@ -52,6 +53,9 @@ fn main() {
     }
 }
 
+// human player input loop, allows for:
+// - 'place [tile_id]'
+// - 'move [penguin_id] to [tile_id]'
 fn get_player_input() -> Action {
     print!("{}\n> ", PLAYER_USAGE);
     std::io::stdout().flush().ok();
