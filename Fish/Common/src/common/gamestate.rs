@@ -79,11 +79,14 @@ impl fmt::Debug for GameState {
                         match self.players.values().find(|player|
                             player.penguins.iter().any(|penguin| penguin.tile_id == Some(id)))
                         {
-                            Some(player) => format!("p{}", player.player_id.0),
-                            None => id.0.to_string(),
+                            Some(player) => {
+                                let penguin = player.penguins.iter().find(|penguin| penguin.tile_id == Some(id)).unwrap();
+                                format!("p{}-pe{}-{}", player.player_id.0, penguin.penguin_id.0, id.0)
+                            },
+                            None => format!("       {}", id.0),
                         }
                     },
-                    None => "x".to_string(),
+                    None => "       x".to_string(),
                 };
                 board_string.push_str(&tile_string);
                 board_string.push_str("    ");
@@ -91,7 +94,14 @@ impl fmt::Debug for GameState {
             board_string.push_str("\n");
         }
 
-        write!(f, "{}", board_string)
+        writeln!(f, "{}", board_string)?;
+
+        for (player_id, player) in self.players.iter() {
+            let current_player_str = if self.current_turn == *player_id { "'s turn" } else { "" };
+            writeln!(f, "Player {}{} - {}", player_id.0, current_player_str, player.score)?;
+        }
+
+        writeln!(f, "")
     }
 }
 
@@ -291,7 +301,7 @@ impl GameState {
     /// some players have won, or there are no players left in the game.
     pub fn is_game_over(&self) -> bool {
         let game_over = self.winning_players.is_some() || self.players.is_empty();
-        assert_ne!(self.can_any_player_move_penguin(), game_over);
+        assert_eq!(!self.all_penguins_are_placed() || self.can_any_player_move_penguin(), !game_over);
         game_over
     }
 

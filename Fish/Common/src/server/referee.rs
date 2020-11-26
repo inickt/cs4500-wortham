@@ -92,6 +92,7 @@ pub fn run_game_shared(clients: &[Client], board: Option<Board>) -> GameResult {
         referee.do_player_turn();
     }
 
+    referee.send_gamestate_to_all_clients();
     referee.get_game_result()
 }
 

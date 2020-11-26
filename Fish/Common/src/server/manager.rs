@@ -221,7 +221,7 @@ mod tests {
     use crate::server::connection::PlayerConnection;
     use crate::server::referee::ClientStatus::*;
 
-    use std::net::{TcpStream, TcpListener, Shutdown};
+    use std::net::{ TcpListener, TcpStream };
 
     /// A simple strategy for testing that works similarly to ZigZagMinMaxStrategy, except only has a lookahead of 1
     pub struct SimpleStrategy;
@@ -260,9 +260,9 @@ mod tests {
     }
 
     fn make_player_fails_to_accept(port: usize) -> ClientProxy {
-        let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect to localhost");
-        stream.shutdown(Shutdown::Both).expect("Could not close TCP stream");
-        ClientProxy::Remote(PlayerConnection::new(stream))        
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).expect("Could not create listener");
+        listener.set_nonblocking(true).ok();
+        ClientProxy::Remote(PlayerConnection::new(listener))        
     }
 
 
@@ -335,10 +335,6 @@ mod tests {
     // have their status updated to be kicked from the tournament.
     #[test]
     fn test_notify_tournament_started() {
-        // mock host created so that the remote player that fails to accept the tournament end message
-        // can bind to something.
-        let _mock_host = TcpListener::bind("127.0.0.1:8081").expect("Could not create mock host");
-
         let clients = vec![
             Client::new(0, make_simple_strategy_player()), // player who will accept message
             Client::new(1, make_player_fails_to_accept(8081)), // player that will fail to accept message
@@ -364,10 +360,6 @@ mod tests {
     /// All other players will accept the message and will not have their statuses changed.
     #[test]
     fn test_notify_tournament_finished() {
-        // mock host created so that the remote player that fails to accept the tournament end message
-        // can bind to something.
-        let _mock_host = TcpListener::bind("127.0.0.1:8080").expect("Could not create mock host");
-
         let clients = vec![
             Client::new(0, make_simple_strategy_player()), // player who will win and accept message
             Client::new(1, make_player_fails_to_accept(8080)), // player that will win but fail to accept message

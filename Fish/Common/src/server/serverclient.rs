@@ -42,8 +42,7 @@ impl ClientProxy {
     pub fn get_action(&mut self) -> Option<Action> {
         match self {
             ClientProxy::Remote(connection) => {
-                // Wait for the player to send their Action
-                unimplemented!()
+                connection.receive_action()
             },
             ClientProxy::InHouseAI(ai) => {
                 Some(ai.take_turn())
@@ -63,7 +62,7 @@ impl ClientProxy {
     pub fn send(&mut self, message: &[u8]) -> Result<usize, std::io::Error> {
         match self {
             ClientProxy::Remote(connection) => {
-                connection.stream.write(message)
+                connection.write(message)
             },
             ClientProxy::InHouseAI(ai) => { 
                 ai.receive_gamestate(message);
