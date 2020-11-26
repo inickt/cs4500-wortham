@@ -23,14 +23,7 @@ const TIMEOUT_SECS: u64 = 1;
 const PLAYER_USAGE: &str = "Usage:\n'place [tile_id]'\n'move [penguin_id] to [tile_id]'";
 
 fn main() {
-    // create a tournament with n - 1 ai players and 1 human controlled player
-    thread::spawn(|| {
-        let players = create_players();
-        let game_result = run_game(players, None);
-        let player_result = game_result.final_statuses.last().unwrap();
-        thread::sleep(Duration::from_secs(1));
-        println!("END GAME STATE:\n{:?}\nFINAL PLAYER STATUS:{:?}", game_result.final_state, player_result);
-    });
+    start_game_server();
 
     // run a human controlled player loop
     let human_player = PlayerId(get_ai_player_count());
@@ -51,6 +44,17 @@ fn main() {
             _ => panic!(),
         }
     }
+}
+
+fn start_game_server() {
+    // create a tournament with n - 1 ai players and 1 human controlled player
+    thread::spawn(|| {
+        let players = create_players();
+        let game_result = run_game(players, None);
+        let player_result = game_result.final_statuses.last().unwrap();
+        thread::sleep(Duration::from_secs(1));
+        println!("END GAME STATE:\n{:?}\nFINAL PLAYER STATUS: {:?}", game_result.final_state, player_result);
+    });
 }
 
 // human player input loop, allows for:

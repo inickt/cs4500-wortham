@@ -80,13 +80,12 @@ impl fmt::Debug for GameState {
                             player.penguins.iter().any(|penguin| penguin.tile_id == Some(id)))
                         {
                             Some(player) => {
-                                let penguin = player.penguins.iter().find(|penguin| penguin.tile_id == Some(id)).unwrap();
-                                format!("p{}-pe{}-{}", player.player_id.0, penguin.penguin_id.0, id.0)
+                                format!("P{}", player.player_id.0)
                             },
-                            None => format!("       {}", id.0),
+                            None => format!("{:2}", id.0),
                         }
                     },
-                    None => "       x".to_string(),
+                    None => " x".to_string(),
                 };
                 board_string.push_str(&tile_string);
                 board_string.push_str("    ");
@@ -96,9 +95,19 @@ impl fmt::Debug for GameState {
 
         writeln!(f, "{}", board_string)?;
 
+        // Write each player, their score, and their penguin positions
         for (player_id, player) in self.players.iter() {
-            let current_player_str = if self.current_turn == *player_id { "'s turn" } else { "" };
-            writeln!(f, "Player {}{} - {}", player_id.0, current_player_str, player.score)?;
+            let current_player_str = if self.current_turn == *player_id { "<- current turn" } else { "" };
+
+            let penguins = util::map_slice(&player.penguins, |penguin| {
+                match penguin.tile_id {
+                    Some(id) => format!("penguin {} on tile {}", penguin.penguin_id.0, id.0),
+                    None => "unplaced".to_string(),
+                }
+            }).join(", ");
+
+            writeln!(f, "Player {} (P{}) - score: {} - penguins: [{}] {}",
+                player_id.0, player_id.0, player.score, penguins, current_player_str)?;
         }
 
         writeln!(f, "")
