@@ -13,9 +13,12 @@ and/or player-interface modules:
    
    - the interface that the human-GUI component implements  
      https://github.ccs.neu.edu/CS4500-F20/wortham/blob/995396fa77a9022124466be37d5fa2453d9dc789/Fish/Common/src/server/connection.rs#L16-L19
+     
+     both types of players are represented by a ClientProxy enumeration [here](https://github.ccs.neu.edu/CS4500-F20/wortham/blob/64a12ffaf06cf78ece094f1411420ff4ad4ded3e/Fish/Common/src/server/serverclient.rs#L30-L37)
    
    - the implementation of the player GUI  
-     https://github.ccs.neu.edu/CS4500-F20/wortham/blob/995396fa77a9022124466be37d5fa2453d9dc789/9/Other/src/main.rs#L33-L45
+     Our gamestate printing logic is [here](https://github.ccs.neu.edu/CS4500-F20/wortham/blob/995396fa77a9022124466be37d5fa2453d9dc789/Fish/Common/src/common/gamestate.rs#L68-L115)
+     and the player gamestate printing and input loop is [here](https://github.ccs.neu.edu/CS4500-F20/wortham/blob/995396fa77a9022124466be37d5fa2453d9dc789/9/Other/src/main.rs#L33-L45).
    
 
 2. for game observers, point the TA to
