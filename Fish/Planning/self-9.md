@@ -8,9 +8,15 @@ Indicate below where your TA can find the following elements in your strategy
 and/or player-interface modules: 
 
 1. for human players, point the TA to
-   - the interface (signature) that an AI player implements
-   - the interface that the human-GUI component implements
-   - the implementation of the player GUI
+   - the interface (signature) that an AI player implements  
+     https://github.ccs.neu.edu/CS4500-F20/wortham/blob/995396fa77a9022124466be37d5fa2453d9dc789/Fish/Common/src/client/player.rs#L7-L20
+   
+   - the interface that the human-GUI component implements  
+     https://github.ccs.neu.edu/CS4500-F20/wortham/blob/995396fa77a9022124466be37d5fa2453d9dc789/Fish/Common/src/server/connection.rs#L16-L19
+   
+   - the implementation of the player GUI  
+     https://github.ccs.neu.edu/CS4500-F20/wortham/blob/995396fa77a9022124466be37d5fa2453d9dc789/9/Other/src/main.rs#L33-L45
+   
 
 2. for game observers, point the TA to
    - the `game-observer` interface that observers implement 
