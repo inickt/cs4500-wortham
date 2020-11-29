@@ -28,23 +28,23 @@ enum Bracket {
 /// players into Brackets and putting each PlayerGrouping into a
 /// game managed by a referee each round until there is one final
 /// game or the set of winners stays the same 2 games in a row.
-/// 
+///
 /// Returns the list of statuses (whether each client Won, Lost, or
 /// was Kicked from the tournament as a whole) for each client
 /// in the same order as the given clients list.
 ///
 /// See next_bracket for how clients are divided up into brackets each round.
-/// 
-/// Players should expect a tournament to begin when they first 
+///
+/// Players should expect a tournament to begin when they first
 /// receive a game state from the referee managing their first round.
-/// 
+///
 /// When the tournament finishes, all active players (i.e. those who are not
 /// kicked) are notified as to whether they won or lost. Winners who fail to
 /// accept this message are converted to players who lost before the final list
 /// of statuses is returned.
-/// 
+///
 /// It is assumed that the given list of players should not have any
-/// Kicked clients. 
+/// Kicked clients.
 pub fn run_tournament(proxies: Vec<ClientProxy>, board: Option<Board>) -> Vec<ClientStatus> {
     let mut results = BTreeMap::new();
 
@@ -154,7 +154,7 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 /// an individual game. In the case of remaining players, the list of allocated games will
 /// be backtracked and players will be removed, one-by-one, to form games of size one less
 /// than the maximal number. This will occur until all players are assigned.
-/// 
+///
 /// It is assumed that the given slice of players is sorted in ascending order of age. If the number
 /// of player initially given is too small to create a game, Bracket::End is returned.
 fn next_bracket(clients: &[Client], previous_player_count: Option<usize>) -> Bracket {
@@ -162,7 +162,15 @@ fn next_bracket(clients: &[Client], previous_player_count: Option<usize>) -> Bra
         return Bracket::End;
     }
 
+    // End the game if the winners are the same 2 rounds in a row. The only way this can
+    // happen is if all players tie. In this case, the number of winning players is equal
+    // to the length of clients list.
     if previous_player_count.map_or(false, |count| count == clients.len()) {
+        return Bracket::End;
+    }
+
+    // If we only have enough players for one game, that game should be the final tournament round.
+    if previous_player_count.map_or(false, |count| count <= gamestate::MAX_PLAYERS_PER_GAME) {
         return Bracket::End;
     }
 
@@ -171,10 +179,10 @@ fn next_bracket(clients: &[Client], previous_player_count: Option<usize>) -> Bra
 
 /// Create a list of player groupings to be used in a bracket. Players will be grouped into groups
 /// of size gamestate::MAX_PLAYERS_PER_GAME. This function will also handle the case where there are remaining
-/// players that cannot form a group of gamestate::MIN_PLAYERS_PER_GAME or more, in which case the allocated games 
+/// players that cannot form a group of gamestate::MIN_PLAYERS_PER_GAME or more, in which case the allocated games
 /// will be backtracked and players will be removed, one-by-one, to form games of size one less than the maximal
 /// number. This will occur until all players are assigned.
-/// 
+///
 /// The given list of players is assumed to be sorted in ascending age order. This function will panic if the initial list of players
 /// does not contain enough players to form a single game.
 fn create_player_groupings(clients: &[Client]) -> Vec<PlayerGrouping> {
@@ -262,33 +270,33 @@ mod tests {
     fn make_player_fails_to_accept(port: usize) -> ClientProxy {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).expect("Could not create listener");
         listener.set_nonblocking(true).ok();
-        ClientProxy::Remote(PlayerConnection::new(listener))        
+        ClientProxy::Remote(PlayerConnection::new(listener))
     }
 
 
     /// Run a full tournament of fish, with 8 players and a total of 2 rounds. The initial board after penguins are placed looks as follows:
-    /// p1    p2    p3    p4 
+    /// p1    p2    p3    p4
     ///    p1    p2    p3    p4
-    /// 1     x     x     x 
-    /// 
+    /// 1     x     x     x
+    ///
     /// Where there are 1 fish per tile, and x denotes a removed tile.
     ///
     /// After round 1, the board looks as follows:
-    /// p1    p2    p3    p4 
+    /// p1    p2    p3    p4
     ///    x     p2    p3    p4
-    /// p1    x     x     x 
-    /// 
+    /// p1    x     x     x
+    ///
     /// Player 1 of each individual game will be the winner. This will correspond to players 1 and 5 of the tournament.
     ///
     /// After the placement phase, the board at round 2 looks as follows:
     /// p1    p2    p1    p2
     ///    p1    p2    p1    p2
-    /// 1     x     x     x 
+    /// 1     x     x     x
     ///
     /// After round 2, the board looks as follows:
     /// p1    p2    p1    p2
     ///    x     p2    p1    p2
-    /// p1     x     x     x 
+    /// p1     x     x     x
     ///
     /// Thus, player 1 of the tournament will be the winner.
     ///
@@ -322,7 +330,7 @@ mod tests {
         let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
         let board = Board::with_holes(3, 4, holes, 1);
         let mut results = BTreeMap::new();
-       
+
         let winners = run_round(player_grouping, Some(board), &mut results);
 
         assert_eq!(winners.len(), 2);
@@ -376,23 +384,23 @@ mod tests {
     /// Run a round of fish with 4 players where the first player is attempting to cheat.
     ///
     /// The initial board after penguins are placed looks as follows:
-    /// p1    p2    p3    p4 
+    /// p1    p2    p3    p4
     ///    p1    p2    p3    p4
-    /// x     5     x     x11 
+    /// x     5     x     x11
     ///
     /// Where there are 1 fish per tile, x denotes a removed tile, and a number denotes the tile ID.
     /// x11 denotes the removed tile with TileID 11 that the cheating player will always attempt to move to.
     ///
     /// Player 1 will be kicked upon its first move. The board will then look as follows:
-    /// 0    p2    p3    p4 
+    /// 0    p2    p3    p4
     ///    1    p2    p3    p4
-    /// x    5     x     x 
+    /// x    5     x     x
     ///
     /// At the end of the round, the board looks as follows:
-    /// 0    x     p3    p4 
+    /// 0    x     p3    p4
     ///   p2    x    p3    p4
-    /// x    p2     x     x 
-    /// 
+    /// x    p2     x     x
+    ///
     /// Player 2 will be the winner.
     #[test]
     fn test_run_bad_round() {
@@ -434,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tournament_ends_when_too_few_players_for_single_game() { 
+    fn test_tournament_ends_when_too_few_players_for_single_game() {
         // The only case where there are too few players (except for when there are none) is when there is only 1 player.
         let players = vec![
             ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
@@ -447,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tournament_no_players() { 
+    fn test_tournament_no_players() {
         let board = Board::with_no_holes(2, 4, 1);
         let statuses = run_tournament(vec![], Some(board));
         assert_eq!(statuses, vec![]);
@@ -460,11 +468,16 @@ mod tests {
         let players = vec![
             make_simple_strategy_player(),
             make_simple_strategy_player(),
+            make_simple_strategy_player(),
+            make_simple_strategy_player(),
         ];
-        
-        let board = Board::with_no_holes(5, 5, 2);
+
+        let board = Board::with_no_holes(5, 3, 1);
         let statuses = run_tournament(players, Some(board));
-        let winners = vec![ClientStatus::Won, ClientStatus::Lost];
+
+        // If we end after the first game we expect 3 players to win. If the tournament erroneously
+        // continues more players will lose.
+        let winners = vec![Won, Lost, Won, Won];
         assert_eq!(statuses, winners);
     }
 
@@ -489,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn test_allocate_ends_when_too_few_players_for_single_game() { 
+    fn test_allocate_ends_when_too_few_players_for_single_game() {
         let clients = vec![Client::new(0, make_simple_strategy_player())];
 
         // next_bracket of 1 player
@@ -500,6 +513,28 @@ mod tests {
 
         // next_bracket of 0 players
         match next_bracket(&[], None) {
+            Bracket::Round { .. } => panic!("Expected next_bracket to return Bracket::End, found Bracket::Round"),
+            Bracket::End => (),
+        }
+    }
+
+    #[test]
+    fn test_allocate_ends_when_enough_players_for_one_last_game() {
+        let clients = vec![
+            Client::new(0, make_simple_strategy_player()),
+            Client::new(1, make_simple_strategy_player()),
+            Client::new(2, make_simple_strategy_player()),
+        ];
+
+        // First game with 3 players
+        match next_bracket(&clients, None) {
+            Bracket::Round { .. } => (),
+            Bracket::End => panic!("Expected next_bracket to return Bracket::Round, found Bracket::End"),
+        }
+
+        // New round with 3 players, previous game had 4 total players.
+        // Need to end the game because the previous round had enough players for only 1 final game.
+        match next_bracket(&clients, Some(4)) {
             Bracket::Round { .. } => panic!("Expected next_bracket to return Bracket::End, found Bracket::Round"),
             Bracket::End => (),
         }
