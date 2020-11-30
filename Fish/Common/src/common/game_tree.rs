@@ -74,12 +74,23 @@ impl GameTree {
         }
     }
 
-    /// Returns the `Game` that would be produced as a result of taking the given Move.
+    /// Returns the `GameTree` that would be produced as a result of taking the given Move.
     /// If the move is invalid (not in valid_moves or self is `End`) then None is returned
     pub fn get_game_after_move(&mut self, move_: Move) -> Option<&mut GameTree> {
         match self {
             GameTree::Turn { valid_moves, .. } => {
                 valid_moves.get_mut(&move_).map(|lazy_game| lazy_game.get_evaluated())
+            },
+            GameTree::End(_) => None,
+        }
+    }
+
+    /// Returns the `GameTree` that would be produced as a result of taking the given Move.
+    /// If the move is invalid (not in valid_moves or self is `End`) then None is returned
+    pub fn take_game_after_move(self, move_: Move) -> Option<GameTree> {
+        match self {
+            GameTree::Turn { valid_moves, .. } => {
+                valid_moves.remove(&move_).map(|lazy_game| lazy_game.evaluate())
             },
             GameTree::End(_) => None,
         }

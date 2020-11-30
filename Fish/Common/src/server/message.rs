@@ -9,23 +9,23 @@ use serde_json::json;
 
 #[derive(Deserialize)]
 pub struct Message<T, U> {
-    name: String,
-    arguments: (T, U),
+    pub name: String,
+    pub arguments: (T, U),
 }
 
 #[derive(Serialize, Deserialize)]
-struct JSONGameState {
-    players: Vec<JSONPlayer>,
-    board: JSONBoard,
+pub struct JSONGameState {
+    pub players: Vec<JSONPlayer>,
+    pub board: JSONBoard,
 }
 
 type JSONBoard = Vec<Vec<u32>>;
 
 #[derive(Serialize, Deserialize)]
 struct JSONPlayer {
-    color: PlayerColor,
-    score: usize, // do we need arbitrary precision? 4 says "Natural"
-    places: Vec<JSONPosition>
+    pub color: PlayerColor,
+    pub score: usize, // do we need arbitrary precision? 4 says "Natural"
+    pub places: Vec<JSONPosition>
 }
 
 /// Json pair of [ board_row, board_column ]

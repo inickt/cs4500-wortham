@@ -3,6 +3,7 @@
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerId;
+use crate::common::action::Move;
 
 /// Represents the step of the Fish game protocol the game is on currently.
 /// This struct is necessary because it allows us to represent a Game
@@ -108,6 +109,31 @@ impl GamePhase {
         } else {
             GamePhase::Done(gamestate)
         };
+    }
+
+    /// "Perform" a move, mutating the current game phase to the game phase after
+    /// the given move. If the given move is not valid, no mutation will be done
+    /// and None will be returned instead.
+    pub fn try_do_move(&mut self, move_: Move) -> Option<()> {
+        // Validate the move first
+        match self {
+            GamePhase::MovingPenguins(tree) => {
+                let result = tree.get_game_after_move(move_);
+                if result.is_none() {
+                    return None;
+                }
+            },
+            _ => return None,
+        }
+
+        let phase = std::mem::replace(self, GamePhase::Starting);
+
+        // Then mutate self to be the game after the given move
+        if let GamePhase::MovingPenguins(tree) = phase {
+            let game_after_move = tree.take_game_after_move(move_).unwrap();
+            *self = GamePhase::MovingPenguins(game_after_move);
+        }
+        Some(())
     }
 }
 

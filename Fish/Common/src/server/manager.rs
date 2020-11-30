@@ -3,6 +3,7 @@
 use crate::server::referee;
 use crate::server::referee::ClientStatus;
 use crate::server::serverclient::{ Client, ClientProxy };
+use crate::server::message::*;
 use crate::common::gamestate;
 use crate::common::board::Board;
 use crate::common::util;
@@ -69,14 +70,9 @@ pub fn run_tournament(proxies: Vec<ClientProxy>, board: Option<Board>) -> Vec<Cl
 /// message are returned in the same order.
 fn notify_tournament_started(clients: &[Client], results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<Client> {
     clients.iter().filter_map(|client| {
-        let message = json!({
-            "type": "StartTournament",
-            "assigned_player_id": client.id.0,
-        });
+        let message = start_message();
 
-        let serialized_msg = serde_json::to_string(&message).unwrap();
-
-        match client.proxy.borrow_mut().send(serialized_msg.as_bytes()) {
+        match client.proxy.borrow_mut().send(message.as_bytes()) {
             Ok(_) => Some(client.clone()),
             Err(_) => {
                 results.insert(client.id, ClientStatus::Kicked);
@@ -90,21 +86,12 @@ fn notify_tournament_started(clients: &[Client], results: &mut BTreeMap<PlayerId
 /// then their status is changed to Lost. This change is reflected in the returned client statuses
 /// which is in the same ordering as the given statuses vector.
 fn notify_tournament_finished(clients: Vec<Client>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
-    let winners = clients.iter().zip(statuses.iter())
-        .filter(|(_, status)| **status == ClientStatus::Won)
-        .map(|(client, _)| client.id)
-        .collect::<Vec<PlayerId>>();
-
-    let message = json!({
-        "type": "TournamentFinished",
-        "winners": winners
-    });
-
-    let serialized_msg = serde_json::to_string(&message).unwrap();
-
     for (i, tournament_client) in clients.iter().enumerate() {
-        if tournament_client.proxy.borrow_mut().send(serialized_msg.as_bytes()).is_err()
-                && statuses[i] == ClientStatus::Won {
+        let player_won = statuses[i] == ClientStatus::Won;
+        let message = end_message(player_won);
+
+        let send_result = tournament_client.proxy.borrow_mut().send(message.as_bytes());
+        if send_result.is_err() && player_won {
             statuses[i] = ClientStatus::Lost;
         }
     }

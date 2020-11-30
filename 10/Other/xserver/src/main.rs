@@ -18,6 +18,6 @@ fn main() {
             let kicked = results.iter().filter(|status| **status == ClientStatus::Kicked).count();
             println!("[{},{}]", winners, kicked);
         },
-        None => unimplemented!(),
+        None => println!("Not enough players to start a tournament"),
     }
 }

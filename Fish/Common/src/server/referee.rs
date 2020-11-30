@@ -2,13 +2,14 @@
 //! which runs complete games of Fish. To do this, it starts and runs the
 //! game loop, sending the gamestate to all players each turn then retrieving
 //! a player's move and validating it until the game is over.
-use crate::common::action::Action;
+use crate::common::action::{ Action, PlayerMove };
 use crate::common::board::Board;
 use crate::common::gamestate::GameState;
 use crate::common::gamephase::GamePhase;
 use crate::common::game_tree::GameTree;
-use crate::common::player::PlayerId;
+use crate::common::player::{ PlayerId, PlayerColor };
 use crate::server::serverclient::{ Client, ClientProxy };
+use crate::server::message::*;
 
 /// A referee is in charge of starting, running, and managing a game of fish.
 /// This entails looping until the game is over and on each turn sending the
@@ -30,6 +31,11 @@ struct Referee {
 
     /// The state of current game, separated by the current phase it is in.
     phase: GamePhase,
+
+    /// The past moves that have been received by each client with the most
+    /// recent being last. Empty until the MovePenguins phase and cleared when
+    /// a player is kicked.
+    move_history: Vec<PlayerMove>,
 }
 
 /// The final GameState of a finished game, along with each player and
@@ -84,8 +90,10 @@ pub fn run_game_shared(clients: &[Client], board: Option<Board>) -> GameResult {
     let board = board.unwrap_or(Board::with_no_holes(5, 5, 3));
     let mut referee = Referee::new(clients.to_vec(), board);
 
+    referee.send_playing_as_messages();
+    referee.send_playing_with_messages();
+
     while !referee.is_game_over() {
-        referee.send_gamestate_to_all_clients();
         referee.do_player_turn();
     }
 
@@ -98,6 +106,37 @@ impl Referee {
         let state = GameState::with_players(board, client_ids);
         let phase = GamePhase::PlacingPenguins(state);
         Referee { clients, phase }
+    }
+
+    fn get_client_player_color(&self, client: &Client) -> PlayerColor {
+        let state = self.phase.get_state();
+        state.players.get(&client.id).unwrap().color
+    }
+
+    fn current_client(&self) -> &Client {
+        let current_player_id = self.phase.current_turn();
+        self.clients.iter_mut().find(|client| client.id == current_player_id).unwrap()
+    }
+
+    fn send_playing_as_messages(&self) {
+        for client in self.clients.iter() {
+            let message = playing_as_message(self.get_client_player_color(client));
+            client.send(message.as_bytes());
+        }
+    }
+
+    fn send_playing_with_messages(&self) {
+        let state = self.phase.get_state();
+        for client in self.clients.iter() {
+            let current_player_color = self.get_client_player_color(client);
+            let other_colors = state.players.iter()
+                .map(|player| player.1.color)
+                .filter(|color| *color != current_player_color)
+                .collect::<Vec<PlayerColor>>();
+
+            let message = playing_with_message(&other_colors);
+            client.send(message.as_bytes());
+        }
     }
 
     /// Returns the winners, losers, and kicked players of the game, along
@@ -126,25 +165,6 @@ impl Referee {
         }
     }
     
-    /// Sends the serialized gamestate to each output stream in self.clients
-    /// If there was any error writing to any player, the referee assumes that
-    /// player has disconnected and kicks them from the game, removing their penguins.
-    fn send_gamestate_to_all_clients(&mut self) {
-        let mut disconnected_clients = vec![];
-        for client in self.clients.iter_mut() {
-            let serialized = serde_json::to_string(&self.phase.get_state()).unwrap();
-
-            // Write to the player and if there was an error in doing so, kick them.
-            if let Err(_) = client.proxy.borrow_mut().send(serialized.as_bytes()) {
-                disconnected_clients.push(client.id);
-            }
-        }
-
-        for player_id in disconnected_clients {
-            self.kick_player(player_id);
-        }
-    }
-
     /// Waits for input from the current player in the GameState,
     /// then acts upon that input
     fn do_player_turn(&mut self) {
@@ -168,7 +188,8 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_placement(&mut self) -> Option<()> {
-        let placement = self.get_player_action()?.as_placement()?;
+        let message = setup_message(self.phase.get_state());
+        let placement = self.get_player_action(message)?.as_placement()?;
 
         match &mut self.phase {
             GamePhase::PlacingPenguins(gamestate) => gamestate.place_avatar_for_current_player(placement),
@@ -182,23 +203,40 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
-        let move_ = self.get_player_action()?.as_move()?;
+        let move_history = self.get_move_history_for_current_client();
+        let message = take_turn_message(self.phase.get_state(), &move_history);
+        let move_ = self.get_player_action(message)?.as_move()?;
 
         match &mut self.phase {
             GamePhase::MovingPenguins(gametree) => {
-                let tree = gametree.get_game_after_move(move_)?;
-                let state = tree.get_state().clone();
-                self.phase.update_from_gamestate(state);
+                let color = self.get_client_player_color(self.current_client());
+                let player_move = PlayerMove::new(color, move_, gametree.get_state())?;
+
+                self.phase.try_do_move(move_)?;
+                self.move_history.push(player_move);
                 Some(())
             },
             _ => unreachable!("do_player_move called outside of the MovingPenguins phase"),
         }
     }
 
+    fn get_move_history_for_current_client(&self) -> Vec<PlayerMove> {
+        let current_client_color = self.get_client_player_color(self.current_client());
+
+        // TODO: this is newest first rn, what is the right order?
+        self.move_history.iter().rev()
+            .take_while(|player_move| player_move.mover != current_client_color)
+            .copied()
+            .collect()
+    }
+
     /// Retrieves the Action of the player whose turn it currently is.
-    fn get_player_action(&mut self) -> Option<Action> {
-        let current_player_id = self.phase.current_turn();
-        let current_player = self.clients.iter_mut().find(|client| client.id == current_player_id)?;
+    /// Will prompt the player for a placement/move by sending them the
+    /// given prompt (either a setup message or a take-turn message) before
+    /// waiting for their placement or move sent back as a response
+    fn get_player_action(&mut self, prompt: String) -> Option<Action> {
+        let current_player = self.current_client();
+        current_player.send(prompt.as_bytes()).ok()?;
         current_player.proxy.borrow_mut().get_action()
     }
 
@@ -214,6 +252,10 @@ impl Referee {
         // Must manually update after kicking a player to update the tree of valid moves in the game
         // tree, if needed
         self.phase.update_from_gamestate(self.phase.get_state().clone());
+
+        // Clear the move history when we kick players so as to not retain moves
+        // made by players that are no longer in the game
+        self.move_history.clear();
 
         // The game ends early if all clients are kicked
         if self.clients.iter().all(|client| client.proxy.borrow().is_kicked()) {

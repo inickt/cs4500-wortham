@@ -3,6 +3,9 @@
 use crate::common::action::Action;
 use crate::client::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use crate::common::gamephase::GamePhase;
+use crate::server::message::*;
+
+use serde::Deserialize;
 
 /// Represents the in-house AI player for the Fish game.
 /// This player holds their own GamePhase and is responsible for using their strategy
@@ -56,10 +59,17 @@ impl InHousePlayer {
     /// by a player that changes the game state (placing a penguin, moving a penguin).
     /// This state is automatically sent to every player and it is the player's job
     /// to recieve the gamestate via receive_gamestate()
-    pub fn receive_gamestate(&mut self, bytes: &[u8]) {
-        if let Ok(state) = serde_json::from_slice(bytes) {
-            self.phase.update_from_gamestate(state);
+    pub fn receive_message(&mut self, bytes: &[u8]) {
+        if let Ok(setup) = serde_json::from_slice::<Setup>(bytes) {
+            self.update_from_gamestate(setup.arguments.0);
+        } else if let Ok(taketurn) = serde_json::from_slice::<TakeTurn>(bytes) {
+            self.update_from_gamestate(taketurn.arguments.0);
         }
+    }
+
+    fn update_from_gamestate(&mut self, new_state: JSONGameState) {
+        let new_state = new_state.to_game_state();
+        self.phase.update_from_gamestate(new_state);
     }
 }
 
@@ -77,9 +87,10 @@ mod tests {
         let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
 
         let state = GameState::with_default_board(3, 5, 2);
+        // TODO: need to change this message to a setup or take-turn message
 
         let serialized = serde_json::to_string(&state).unwrap();
-        player.receive_gamestate(serialized.as_bytes());
+        player.receive_message(serialized.as_bytes());
 
         assert_eq!(player.take_turn(), Action::PlacePenguin(Placement { tile_id: TileId(0) }));
     }

@@ -42,10 +42,10 @@ impl PlayerConnection {
 
     /// Receive and verify a player name. A name must:
     /// - consist of only ascii alphabetic characters
-    /// - be at most 12 characters in length
+    /// - be at least 1 and at most 12 characters in length
     pub fn receive_name(&mut self) -> Option<String> {
         let name: String = self.receive()?;
-        if name.chars().all(|c| c.is_ascii_alphabetic()) && name.len() <= 12 {
+        if !name.is_empty() && name.len() <= 12 && name.chars().all(|c| c.is_ascii_alphabetic()) {
             Some(name)
         } else {
             None

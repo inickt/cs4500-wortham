@@ -24,6 +24,22 @@ impl Client {
             proxy: Rc::new(RefCell::new(proxy)),
         }
     }
+
+    pub fn get_action(&self) -> Option<Action> {
+        self.proxy.borrow_mut().get_action()
+    }
+
+    /// Send a message to the player's input stream.
+    /// 
+    /// Since the possible server message to a player is that containing
+    /// the current gamestate, it is expected the contents of this message
+    /// contains the serialized gamestate.
+    /// 
+    /// Returns Ok(num_bytes_written) or otherwise returns an io error if
+    /// the stream could not be written to.
+    pub fn send(&self, message: &[u8]) -> Result<usize, std::io::Error> {
+        self.proxy.borrow_mut().send(message)
+    }
 }
 
 /// The server representation of a game client. There are 1 of
@@ -64,7 +80,7 @@ impl ClientProxy {
                 connection.write(message)
             },
             ClientProxy::InHouseAI(ai) => { 
-                ai.receive_gamestate(message);
+                ai.receive_message(message);
                 Ok(message.len())
             },
             ClientProxy::Kicked => Ok(0),
