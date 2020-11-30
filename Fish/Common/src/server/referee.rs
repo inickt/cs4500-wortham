@@ -10,9 +10,6 @@ use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerId;
 use crate::server::serverclient::{ Client, ClientProxy };
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 /// A referee is in charge of starting, running, and managing a game of fish.
 /// This entails looping until the game is over and on each turn sending the
 /// full gamestate to all player's then getting the action of the current
@@ -92,7 +89,6 @@ pub fn run_game_shared(clients: &[Client], board: Option<Board>) -> GameResult {
         referee.do_player_turn();
     }
 
-    referee.send_gamestate_to_all_clients();
     referee.get_game_result()
 }
 

@@ -1,6 +1,7 @@
 /// This file contains utility functions to abstract over common use cases of built-in
 /// Rust functionality.
 use std::iter::FromIterator;
+use std::time::{ Instant, Duration };
 
 /// Creates a collection of length n with each element mapped from
 /// the current element index to f(index)
@@ -61,4 +62,23 @@ pub fn all_max_by_key<I, T, K, F>(iter: I, mut f: F) -> std::vec::IntoIter<T> wh
         }
     }
     results.into_iter()
+}
+
+/// Keep retrying the given function until it returns a Some(value).
+/// If such a value wasn't returned within the given timeout, return None.
+///
+/// This expects the function to complete in a relatively short time. If
+/// the function runs for a long time, try_with_timeout will potentially
+/// block for longer than `timeout`
+pub fn try_with_timeout<F, U>(timeout: Duration, mut f: F) -> Option<U>
+    where F: FnMut() -> Option<U>
+{
+    let start_time = Instant::now();
+    loop {
+        match f() {
+            Some(value) => return Some(value),
+            None if start_time.elapsed() < timeout => continue,
+            _ => return None,
+        }
+    }
 }

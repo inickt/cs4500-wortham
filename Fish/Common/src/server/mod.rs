@@ -1,4 +1,6 @@
 pub mod referee;
 pub mod serverclient;
 pub mod connection;
-mod manager;
+pub mod manager;
+pub mod signup;
+pub mod message;

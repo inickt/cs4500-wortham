@@ -229,7 +229,8 @@ mod tests {
     use crate::server::connection::PlayerConnection;
     use crate::server::referee::ClientStatus::*;
 
-    use std::net::{ TcpListener, TcpStream };
+    use std::net::{ TcpListener, TcpStream, Shutdown };
+    use std::time::Duration;
 
     /// A simple strategy for testing that works similarly to ZigZagMinMaxStrategy, except only has a lookahead of 1
     pub struct SimpleStrategy;
@@ -268,9 +269,9 @@ mod tests {
     }
 
     fn make_player_fails_to_accept(port: usize) -> ClientProxy {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).expect("Could not create listener");
-        listener.set_nonblocking(true).ok();
-        ClientProxy::Remote(PlayerConnection::new(listener))
+        let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect stream");
+        stream.shutdown(Shutdown::Both);
+        ClientProxy::Remote(PlayerConnection::new_with_timeout(stream, Duration::from_millis(100)))
     }
 
 
@@ -343,6 +344,8 @@ mod tests {
     // have their status updated to be kicked from the tournament.
     #[test]
     fn test_notify_tournament_started() {
+        let _listener = TcpListener::bind(format!("127.0.0.1:{}", 8081)).expect("Could not create listener");
+
         let clients = vec![
             Client::new(0, make_simple_strategy_player()), // player who will accept message
             Client::new(1, make_player_fails_to_accept(8081)), // player that will fail to accept message
@@ -368,6 +371,8 @@ mod tests {
     /// All other players will accept the message and will not have their statuses changed.
     #[test]
     fn test_notify_tournament_finished() {
+        let _listener = TcpListener::bind(format!("127.0.0.1:{}", 8080)).expect("Could not create listener");
+
         let clients = vec![
             Client::new(0, make_simple_strategy_player()), // player who will win and accept message
             Client::new(1, make_player_fails_to_accept(8080)), // player that will win but fail to accept message

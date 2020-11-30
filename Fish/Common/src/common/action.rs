@@ -3,6 +3,8 @@
 //! they will also eventually be able to place penguins.
 use crate::common::penguin::PenguinId;
 use crate::common::tile::TileId;
+use crate::common::boardposn::BoardPosn;
+use crate::common::player::PlayerColor;
 
 use serde::{ Serialize, Deserialize };
 
@@ -27,6 +29,13 @@ impl Move {
     pub fn new(penguin_id: PenguinId, tile_id: TileId) -> Move {
         Move { penguin_id, tile_id }
     }
+}
+
+/// Represents a move that has been  made by a given player
+pub struct PlayerMove {
+    pub mover: PlayerColor,
+    pub from: BoardPosn,
+    pub to: BoardPosn,
 }
 
 /// A Placement is the TileId to place a penguin onto.

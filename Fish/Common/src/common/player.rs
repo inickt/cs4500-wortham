@@ -13,17 +13,18 @@ use serde::{ Serialize, Deserialize };
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct PlayerId(pub usize);
 
+#[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PlayerColor {
-    Blue,
-    Green,
-    Pink,
-    Purple
+    red,
+    white,
+    brown,
+    black,
 }
 
 impl PlayerColor {
     pub fn iter() -> impl Iterator<Item = PlayerColor> {
-        vec![PlayerColor::Blue, PlayerColor::Green, PlayerColor::Pink, PlayerColor::Purple].into_iter()
+        vec![PlayerColor::red, PlayerColor::white, PlayerColor::brown, PlayerColor::black].into_iter()
     }
 }
 
@@ -140,7 +141,7 @@ mod tests {
         let mut board = Board::with_no_holes(3, 3, 3);
         board.remove_tile(TileId(5));
 
-        let mut player = Player::new(PlayerId(0), PlayerColor::Blue, 2);
+        let mut player = Player::new(PlayerId(0), PlayerColor::red, 2);
         let penguin_ids = util::map_slice(&player.penguins, |penguin| penguin.penguin_id);
 
         let unowned_penguin = Penguin::new();
@@ -168,7 +169,7 @@ mod tests {
         // 2   5   8
         let board = Board::with_no_holes(3, 3, 3);
 
-        let mut player = Player::new(PlayerId(0), PlayerColor::Blue, 1);
+        let mut player = Player::new(PlayerId(0), PlayerColor::red, 1);
         let penguin_id = player.penguins[0].penguin_id;
 
         // Reachable tiles from 0 are [0, 2, 1, 5]
