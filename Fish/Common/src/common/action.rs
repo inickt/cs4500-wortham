@@ -5,6 +5,7 @@ use crate::common::penguin::PenguinId;
 use crate::common::tile::TileId;
 use crate::common::boardposn::BoardPosn;
 use crate::common::player::PlayerColor;
+use crate::common::gamestate::GameState;
 
 use serde::{ Serialize, Deserialize };
 
@@ -40,10 +41,9 @@ pub struct PlayerMove {
 }
 
 impl PlayerMove {
-    pub fn new(mover: PlayerColor, move_: Move, game_state: &GameState) -> Option<PlayerMove> {
-        let from_tile_id = game_state.get_penguin_tile_position(move_.penguin_id)?
-        let from = game_state.board.get_tile_position(from_tile_id);
-        let to = game_state.board.get_tile_position(move_.tile_id);
+    pub fn new(mover: PlayerColor, move_: Move, state: &GameState) -> Option<PlayerMove> {
+        let from = state.get_penguin_tile_position(move_.penguin_id)?;
+        let to = state.board.get_tile_position(move_.tile_id);
         Some(PlayerMove { mover, from, to })
     }
 }

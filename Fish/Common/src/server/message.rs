@@ -2,6 +2,7 @@ use crate::common::gamestate::GameState;
 use crate::common::action::PlayerMove;
 use crate::common::board::Board;
 use crate::common::player::{ Player, PlayerColor };
+use crate::common::penguin::Penguin;
 use crate::common::util;
 
 use serde::{ Serialize, Deserialize };
@@ -22,7 +23,7 @@ pub struct JSONGameState {
 type JSONBoard = Vec<Vec<u32>>;
 
 #[derive(Serialize, Deserialize)]
-struct JSONPlayer {
+pub struct JSONPlayer {
     pub color: PlayerColor,
     pub score: usize, // do we need arbitrary precision? 4 says "Natural"
     pub places: Vec<JSONPosition>
@@ -39,7 +40,7 @@ type JSONAction = [JSONPosition; 2];
 pub type Start = Message<bool, ()>;
 pub type PlayingAs = Message<PlayerColor, ()>;
 pub type PlayingWith = Message<Vec<PlayerColor>, ()>;
-pub type Setup = Message<JSONGameState, ()>;
+pub type Setup = Message<JSONGameState, std::marker::PhantomData<()>>;
 pub type TakeTurn = Message<JSONGameState, Vec<JSONAction>>;
 pub type End = Message<bool, ()>;
 
@@ -117,4 +118,51 @@ fn serialize_gamestate(gamestate: &GameState) -> JSONGameState {
     let players = serialize_players(gamestate);
 
     JSONGameState { players, board }
+}
+
+impl JSONGameState {
+    pub fn to_common_game_state(self) -> GameState {
+        let board = Board::from_tiles(self.board);
+
+        let mut gamestate = GameState::new(board, self.players.len());
+
+        set_player_scores(&mut gamestate, &self.players);
+        place_penguins(&mut gamestate, &self.players);
+
+        gamestate
+    }
+}
+
+fn set_player_scores(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
+    assert_eq!(gamestate.turn_order.len(), json_players.len());
+
+    for (turn, json_player) in gamestate.turn_order.iter().copied().zip(json_players.iter()) {
+        let player = gamestate.players.get_mut(&turn).unwrap();
+        player.score = json_player.score;
+    }
+}
+
+fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
+    let player_ids = gamestate.turn_order.clone().into_iter();
+
+    for (player_id, json_player) in player_ids.zip(json_players.iter()) {
+        let player = gamestate.players.get_mut(&player_id).unwrap();
+        player.penguins.clear();
+
+        // Push a new penguin on each iteration, in case the given json_players
+        // contains an uneven amount of penguins for each player.
+        for place in json_player.places.iter() {
+            // TODO: This is WRONG! The PenguinIDs will differ here!
+            let penguin = Penguin::new();
+            let penguin_id = penguin.penguin_id;
+
+            // Must get the player again so that gamestate isn't mutably borrowed twice
+            // during place_avatar_without_changing_turn
+            let player = gamestate.players.get_mut(&player_id).unwrap();
+            player.penguins.push(penguin);
+
+            let tile_id = gamestate.board.get_tile(place[1], place[0]).unwrap().tile_id;
+            gamestate.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
+        }
+    }
 }

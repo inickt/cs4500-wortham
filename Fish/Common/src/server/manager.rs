@@ -9,8 +9,6 @@ use crate::common::board::Board;
 use crate::common::util;
 use crate::common::player::PlayerId;
 
-use serde_json::json;
-
 use std::collections::BTreeMap;
 
 /// Represents a single game within a bracket, with each client in the Vec
@@ -257,7 +255,7 @@ mod tests {
 
     fn make_player_fails_to_accept(port: usize) -> ClientProxy {
         let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect stream");
-        stream.shutdown(Shutdown::Both);
+        stream.shutdown(Shutdown::Both).expect("Failed to shutdown TcpStream");
         ClientProxy::Remote(PlayerConnection::new_with_timeout(stream, Duration::from_millis(100)))
     }
 

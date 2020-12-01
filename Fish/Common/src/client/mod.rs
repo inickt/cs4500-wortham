@@ -22,10 +22,10 @@ pub mod player;
 const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";
 
-const BLUE_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
-const GREEN_PENGUIN_FILENAME: &str = "assets/penguin-green.png";
-const PINK_PENGUIN_FILENAME: &str = "assets/penguin-pink.png";
-const PURPLE_PENGUIN_FILENAME: &str = "assets/penguin-purple.png";
+const RED_PENGUIN_FILENAME: &str = "assets/penguin-blue.png";
+const WHITE_PENGUIN_FILENAME: &str = "assets/penguin-green.png";
+const BROWN_PENGUIN_FILENAME: &str = "assets/penguin-pink.png";
+const BLACK_PENGUIN_FILENAME: &str = "assets/penguin-purple.png";
 
 /// Text to display above the current turn player image.
 const CURRENT_TURN_TEXT: &str = "Current Turn:";
@@ -62,10 +62,10 @@ fn make_fish_image(fish_count: usize) -> Image {
 /// Creates a single gtk::Image containing a penguin of the given color
 fn get_penguin_image(color: PlayerColor, width: i32, height: i32) -> Image {
     let filename = match color {
-        PlayerColor::Blue => BLUE_PENGUIN_FILENAME,
-        PlayerColor::Green => GREEN_PENGUIN_FILENAME,
-        PlayerColor::Pink => PINK_PENGUIN_FILENAME,
-        PlayerColor::Purple => PURPLE_PENGUIN_FILENAME,
+        PlayerColor::red => RED_PENGUIN_FILENAME,
+        PlayerColor::white => WHITE_PENGUIN_FILENAME,
+        PlayerColor::brown => BROWN_PENGUIN_FILENAME,
+        PlayerColor::black => BLACK_PENGUIN_FILENAME,
     };
 
     let pixbuf = Image::new_from_file(filename).get_pixbuf().unwrap();

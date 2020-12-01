@@ -5,8 +5,6 @@ use crate::client::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use crate::common::gamephase::GamePhase;
 use crate::server::message::*;
 
-use serde::Deserialize;
-
 /// Represents the in-house AI player for the Fish game.
 /// This player holds their own GamePhase and is responsible for using their strategy
 /// to determine what action to take on their turn.
@@ -64,11 +62,15 @@ impl InHousePlayer {
             self.update_from_gamestate(setup.arguments.0);
         } else if let Ok(taketurn) = serde_json::from_slice::<TakeTurn>(bytes) {
             self.update_from_gamestate(taketurn.arguments.0);
+        } else {
+            println!("Failed to accept message!\n{}", String::from_utf8_lossy(bytes));
         }
     }
 
+    /// Mutate the current GameState of self.phase to the given
+    /// game state described by new_state.
     fn update_from_gamestate(&mut self, new_state: JSONGameState) {
-        let new_state = new_state.to_game_state();
+        let new_state = new_state.to_common_game_state();
         self.phase.update_from_gamestate(new_state);
     }
 }
@@ -87,10 +89,8 @@ mod tests {
         let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
 
         let state = GameState::with_default_board(3, 5, 2);
-        // TODO: need to change this message to a setup or take-turn message
-
-        let serialized = serde_json::to_string(&state).unwrap();
-        player.receive_message(serialized.as_bytes());
+        let message = setup_message(&state);
+        player.receive_message(message.as_bytes());
 
         assert_eq!(player.take_turn(), Action::PlacePenguin(Placement { tile_id: TileId(0) }));
     }
@@ -105,20 +105,20 @@ mod tests {
             take_zigzag_placement(&mut state); // place all penguins using the zigzag method
         }
 
-        let serialized = serde_json::to_string(&state).unwrap();
-        player.receive_gamestate(serialized.as_bytes());
+        let message = take_turn_message(&state, &[]);
+        player.receive_message(message.as_bytes());
 
         let action = player.take_turn();
         assert_eq!(action.as_move().unwrap().tile_id, TileId(2));
     }
 
     #[test]
-    fn test_receive_gamestate() {
+    fn test_receive_setup_message() {
         let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
         let state = GameState::with_default_board(3, 5, 2);
 
-        let serialized = serde_json::to_string(&state).unwrap();
-        player.receive_gamestate(serialized.as_bytes());
+        let message = setup_message(&state);
+        player.receive_message(message.as_bytes());
 
         assert_eq!(player.phase.take_state(), state);
     }

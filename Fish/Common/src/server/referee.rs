@@ -105,7 +105,7 @@ impl Referee {
         let client_ids = clients.iter().map(|client| client.id).collect();
         let state = GameState::with_players(board, client_ids);
         let phase = GamePhase::PlacingPenguins(state);
-        Referee { clients, phase }
+        Referee { clients, phase, move_history: vec![] }
     }
 
     fn get_client_player_color(&self, client: &Client) -> PlayerColor {
@@ -115,18 +115,33 @@ impl Referee {
 
     fn current_client(&self) -> &Client {
         let current_player_id = self.phase.current_turn();
-        self.clients.iter_mut().find(|client| client.id == current_player_id).unwrap()
+        self.clients.iter().find(|client| client.id == current_player_id).unwrap()
     }
 
-    fn send_playing_as_messages(&self) {
+    /// Sends the "playing-as" message to all clients.
+    /// This will kick any clients that fail to accept the message.
+    fn send_playing_as_messages(&mut self) {
+        let mut clients_to_kick = vec![];
+        
         for client in self.clients.iter() {
             let message = playing_as_message(self.get_client_player_color(client));
-            client.send(message.as_bytes());
+
+            if client.send(message.as_bytes()).is_err() {
+                clients_to_kick.push(client.id);
+            }
+        }
+
+        for id in clients_to_kick {
+            self.kick_player(id);
         }
     }
 
-    fn send_playing_with_messages(&self) {
+    /// Sends the "playing-with" message to all clients.
+    /// This will kick any clients that fail to accept the message.
+    fn send_playing_with_messages(&mut self) {
         let state = self.phase.get_state();
+        let mut clients_to_kick = vec![];
+
         for client in self.clients.iter() {
             let current_player_color = self.get_client_player_color(client);
             let other_colors = state.players.iter()
@@ -135,7 +150,13 @@ impl Referee {
                 .collect::<Vec<PlayerColor>>();
 
             let message = playing_with_message(&other_colors);
-            client.send(message.as_bytes());
+            if client.send(message.as_bytes()).is_err() {
+                clients_to_kick.push(client.id);
+            }
+        }
+
+        for id in clients_to_kick {
+            self.kick_player(id);
         }
     }
 
@@ -145,7 +166,7 @@ impl Referee {
     /// Assumes that the game this referee was hosting has been played to
     /// completion - otherwise no winners will be returned.
     fn get_game_result(self) -> GameResult {
-        let Referee { clients, phase } = self;
+        let Referee { clients, phase, .. } = self;
 
         let final_statuses = clients.into_iter().map(|client| {
             if client.proxy.borrow().is_kicked() {
@@ -207,10 +228,12 @@ impl Referee {
         let message = take_turn_message(self.phase.get_state(), &move_history);
         let move_ = self.get_player_action(message)?.as_move()?;
 
+        let current_player_color = self.get_client_player_color(self.current_client());
+
         match &mut self.phase {
             GamePhase::MovingPenguins(gametree) => {
-                let color = self.get_client_player_color(self.current_client());
-                let player_move = PlayerMove::new(color, move_, gametree.get_state())?;
+                let starting_state = gametree.get_state();
+                let player_move = PlayerMove::new(current_player_color, move_, starting_state)?;
 
                 self.phase.try_do_move(move_)?;
                 self.move_history.push(player_move);
