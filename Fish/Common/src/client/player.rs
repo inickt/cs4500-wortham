@@ -100,15 +100,15 @@ mod tests {
 
         let mut state = GameState::with_default_board(3, 5, 2);
 
-        for _ in 0 .. state.all_penguins().len() {
-            take_zigzag_placement(&mut state); // place all penguins using the zigzag method
+        while !state.all_penguins_are_placed() {
+            take_zigzag_placement(&mut state);
         }
 
         let message = take_turn_message(&state, &[]);
         player.receive_message(message.as_bytes());
 
         let action = player.take_turn();
-        assert_eq!(action.as_move().unwrap().tile_id, TileId(2));
+        assert_eq!(action.as_move().unwrap().to, TileId(2));
     }
 
     #[test]

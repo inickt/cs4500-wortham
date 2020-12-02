@@ -1,7 +1,6 @@
 //! The code in this file represents the actions a player can make
 //! when it is their turn. Currently, players can only moves, though
 //! they will also eventually be able to place penguins.
-use crate::common::penguin::PenguinId;
 use crate::common::tile::TileId;
 use crate::common::boardposn::BoardPosn;
 use crate::common::player::PlayerColor;
@@ -10,25 +9,26 @@ use crate::common::gamestate::GameState;
 use serde::{ Serialize, Deserialize };
 
 /// A Move is the main action a player can take on their turn.
-/// It consists of a penguin to move and a tile to move it to.
+/// It consists of a starting position a penguin is currently on
+/// and the end position to move it to.
 /// 
 /// For a move to be valid, there are several conditions that must
-/// be met: the penguin must belong to the player, the tile it is moving
-/// on must be reachable from the penguin's current tile, etc. See
-/// GameState::move_avatar_for_player for more details on making moves
-/// and the conditions for which they are valid.
+/// be met: the penguin on that tile must belong to the player, the
+/// tile it is moving to must be reachable from the penguin's current
+/// tile, etc. See GameState::move_avatar_for_player for more details
+/// on making moves and the conditions for which they are valid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Move {
-    pub penguin_id: PenguinId,
-    pub tile_id: TileId,
+    pub from: TileId,
+    pub to: TileId,
 }
 
 unsafe impl Send for Move {}
 unsafe impl Sync for Move {}
 
 impl Move {
-    pub fn new(penguin_id: PenguinId, tile_id: TileId) -> Move {
-        Move { penguin_id, tile_id }
+    pub fn new(from: TileId, to: TileId) -> Move {
+        Move { from, to }
     }
 }
 
@@ -42,8 +42,8 @@ pub struct PlayerMove {
 
 impl PlayerMove {
     pub fn new(mover: PlayerColor, move_: Move, state: &GameState) -> Option<PlayerMove> {
-        let from = state.get_penguin_tile_position(move_.penguin_id)?;
-        let to = state.board.get_tile_position(move_.tile_id);
+        let from = state.board.get_tile_position(move_.from);
+        let to = state.board.get_tile_position(move_.to);
         Some(PlayerMove { mover, from, to })
     }
 }

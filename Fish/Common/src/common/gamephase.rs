@@ -140,16 +140,11 @@ impl GamePhase {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::strategy::tests::take_zigzag_placement;
 
     fn place_penguins(state: &mut GameState) {
-        let mut i = 0;
-        let width = state.board.width;
-        for (player_id, penguin_id) in state.all_penguins() {
-            let col = i % width;
-            let row = i / width;
-            let tile_id = state.board.get_tile_id(col, row).unwrap();
-            state.place_avatar_for_player(player_id, penguin_id, tile_id);
-            i += 1;
+        while !state.all_penguins_are_placed() {
+            take_zigzag_placement(state);
         }
     }
 

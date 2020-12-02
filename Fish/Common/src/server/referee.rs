@@ -325,7 +325,6 @@ mod tests {
     use crate::client::strategy::Strategy;
     use crate::common::action::{ Move, Placement };
     use crate::common::tile::TileId;
-    use crate::common::penguin::PenguinId;
 
     pub struct CheatingStrategy;
 
@@ -335,7 +334,7 @@ mod tests {
         }
 
         fn find_move(&mut self, _game: &mut GameTree) -> Move {
-            Move::new(PenguinId(0), TileId(0))
+            Move::new(TileId(0), TileId(0))
         }
     }
 

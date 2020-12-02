@@ -153,22 +153,13 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
 
     for (player_id, json_player) in player_ids.zip(json_players.iter()) {
         let player = gamestate.players.get_mut(&player_id).unwrap();
-        player.penguins.clear();
 
         // Push a new penguin on each iteration, in case the given json_players
         // contains an uneven amount of penguins for each player.
-        for place in json_player.places.iter() {
-            // TODO: This is WRONG! The PenguinIDs will differ here!
-            let penguin = Penguin::new();
-            let penguin_id = penguin.penguin_id;
-
-            // Must get the player again so that gamestate isn't mutably borrowed twice
-            // during place_avatar_without_changing_turn
-            let player = gamestate.players.get_mut(&player_id).unwrap();
-            player.penguins.push(penguin);
-
-            let tile_id = gamestate.board.get_tile(place[1], place[0]).unwrap().tile_id;
-            gamestate.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
+        for (penguin, place) in player.penguins.iter_mut().zip(json_player.places.iter()) {
+            // instead of using .map, the tile id here is unwrapped then rewrapped in Some
+            // to force an assertion that the json should never have invalid penguin placements.
+            penguin.tile_id = Some(gamestate.board.get_tile(place[1], place[0]).unwrap().tile_id);
         }
     }
 }
