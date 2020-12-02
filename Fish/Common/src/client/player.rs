@@ -2,6 +2,7 @@
 //! for the Fish game.
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::GameTree;
+use crate::common::player::PlayerColor;
 use crate::common::action::{Action, Placement, Move, PlayerMove};
 use crate::client::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use crate::common::gamephase::GamePhase;
@@ -12,7 +13,7 @@ pub trait PlayerInterface {
     fn tournament_starting(&mut self) -> Option<()>;
     fn tournament_ending(&mut self, won: bool) -> Option<()>;
 
-    fn initialize_game(&mut self, initial_gamestate: &GameState) -> Option<()>;
+    fn initialize_game(&mut self, initial_gamestate: &GameState, player_color: PlayerColor) -> Option<()>;
     fn get_placement(&mut self, gamestate: &GameState) -> Option<Placement>;
     fn get_move(&mut self, gamestate: &GameState, previous: &[PlayerMove]) -> Option<Move>;
 }

@@ -3,6 +3,7 @@ use crate::common::action::{Action, Placement, Move, PlayerMove};
 use crate::common::util;
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::GameTree;
+use crate::common::player::PlayerColor;
 use crate::server::message::{ ClientToServerMessage, ServerToClientMessage, serialize_gamestate, convert_to_json_actions };
 
 use std::net::TcpStream;
@@ -52,13 +53,16 @@ impl PlayerInterface for ProxyPlayer {
         }
     }
 
-    // TODO need to add starting color to this and any other info
-    fn initialize_game(&mut self, initial_gamestate: &GameState) -> Option<()> {
-        match self.call(ServerToClientMessage::PlayingAs(unimplemented!()))? {
+    fn initialize_game(&mut self, initial_gamestate: &GameState, player_color: PlayerColor) -> Option<()> {
+        match self.call(ServerToClientMessage::PlayingAs((player_color,)))? {
             ClientToServerMessage::Void() => Some(()),
             _ => None
         }?;
-        match self.call(ServerToClientMessage::PlayingWith((unimplemented!())))? {
+        let other_colors = initial_gamestate.players.iter()
+            .map(|player| player.1.color)
+            .filter(|color| *color != player_color)
+            .collect::<Vec<PlayerColor>>();
+        match self.call(ServerToClientMessage::PlayingWith((other_colors,)))? {
             ClientToServerMessage::Void() => Some(()),
             _ => None
         }
