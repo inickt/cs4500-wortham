@@ -58,12 +58,11 @@ impl InHousePlayer {
     /// This state is automatically sent to every player and it is the player's job
     /// to recieve the gamestate via receive_gamestate()
     pub fn receive_message(&mut self, bytes: &[u8]) {
-        if let Ok(setup) = serde_json::from_slice::<Setup>(bytes) {
-            self.update_from_gamestate(setup.arguments.0);
-        } else if let Ok(taketurn) = serde_json::from_slice::<TakeTurn>(bytes) {
-            self.update_from_gamestate(taketurn.arguments.0);
-        } else {
-            println!("Failed to accept message!\n{}", String::from_utf8_lossy(bytes));
+        match serde_json::from_slice(bytes) {
+            Ok(ServerToClientMessage::Setup(state)) => self.update_from_gamestate(state.0),
+            Ok(ServerToClientMessage::TakeTurn(state, _)) => self.update_from_gamestate(state),
+            Ok(_) => println!("Parsed different message"),
+            Err(err) => println!("Failed to accept message!\n{}\n err is {}", String::from_utf8_lossy(bytes), err),
         }
     }
 

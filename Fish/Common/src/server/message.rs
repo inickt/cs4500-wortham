@@ -8,12 +8,6 @@ use crate::common::util;
 use serde::{ Serialize, Deserialize };
 use serde_json::json;
 
-#[derive(Deserialize)]
-pub struct Message<T, U> {
-    pub name: String,
-    pub arguments: (T, U),
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct JSONGameState {
     pub players: Vec<JSONPlayer>,
@@ -36,13 +30,25 @@ type JSONPosition = [u32; 2];
 type JSONAction = [JSONPosition; 2];
 
 
-// All types of server->client messages:
-pub type Start = Message<bool, ()>;
-pub type PlayingAs = Message<PlayerColor, ()>;
-pub type PlayingWith = Message<Vec<PlayerColor>, ()>;
-pub type Setup = Message<JSONGameState, std::marker::PhantomData<()>>;
-pub type TakeTurn = Message<JSONGameState, Vec<JSONAction>>;
-pub type End = Message<bool, ()>;
+/// All the types of client-server messages.
+///
+/// This type is intended for deserializing messages
+/// of the format [ "variant-name", [ ... ] ] where the
+/// ... contains the arguments of the message.
+///
+/// Most of these variants contain a single element tuple (T,)
+/// so that deserializing them from a 1-element array works.
+#[derive(Deserialize)]
+#[serde(tag = "name", content = "arguments")]
+#[serde(rename_all = "kebab-case")]
+pub enum ServerToClientMessage {
+    Start((bool,)),
+    PlayingAs((PlayerColor,)),
+    PlayingWith((Vec<PlayerColor>,)),
+    Setup((JSONGameState,)),
+    TakeTurn(JSONGameState, Vec<JSONAction>),
+    End((bool,)),
+}
 
 /// Return a start message encoded in json in a String
 pub fn start_message() -> String {
