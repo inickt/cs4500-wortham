@@ -10,7 +10,6 @@ use crate::client::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use std::net::TcpStream;
 use std::time::Duration;
 use std::io::{ Error, Write };
-use std::net::ToSocketAddrs;
 use std::thread;
 
 use serde::Deserialize;
@@ -23,7 +22,7 @@ pub struct ProxyClient {
 }
 
 impl ProxyClient {
-    pub fn new<A: ToSocketAddrs>(strategy: Box<dyn Strategy>, address: A, timeout: Duration) -> Option<ProxyClient> {
+    pub fn new(strategy: Box<dyn Strategy>, address: &str, timeout: Duration) -> Option<ProxyClient> {
         let stream = TcpStream::connect(address).ok()?;
         stream.set_read_timeout(Some(timeout)).unwrap();
         stream.set_write_timeout(Some(timeout)).unwrap();

@@ -1,2 +1,4 @@
 all:
-	cd Other && cargo build -j7 --release && cp target/release/xgui ..
+	cd Other/xserver && cargo build -j7 --release && cp target/release/xserver ../..
+	cd Other/xclient && cargo build -j7 --release && cp target/release/xclient ../..
+

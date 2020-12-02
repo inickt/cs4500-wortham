@@ -62,9 +62,9 @@ impl ServerToClientMessage {
 // TODO proof of concept, deserializing is completely wrong/use of tile ID etc
 #[derive(Deserialize)]
 pub enum ClientToServerMessage {
-    Void(),
-    Position(Placement),
-    Action(Move),
+    Void(), // "void"
+    Position(Placement), // position: [y, x]
+    Action(Move), // [position, position]
 }
 
 /// Return a start message encoded in json in a String
