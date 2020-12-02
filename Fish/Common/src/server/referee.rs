@@ -243,14 +243,17 @@ impl Referee {
         }
     }
 
+    /// Send the move history from the last time this player moved. Most recent moves are last.
     fn get_move_history_for_current_client(&self) -> Vec<PlayerMove> {
         let current_client_color = self.get_client_player_color(self.current_client());
 
-        // TODO: this is newest first rn, what is the right order?
-        self.move_history.iter().rev()
+        let mut history = self.move_history.iter().rev()
             .take_while(|player_move| player_move.mover != current_client_color)
             .copied()
-            .collect()
+            .collect::<Vec<PlayerMove>>();
+
+        history.reverse();
+        history
     }
 
     /// Retrieves the Action of the player whose turn it currently is.
@@ -325,7 +328,6 @@ mod tests {
     use crate::client::strategy::Strategy;
     use crate::common::action::{ Move, Placement };
     use crate::common::tile::TileId;
-    use crate::common::penguin::PenguinId;
 
     pub struct CheatingStrategy;
 
@@ -335,7 +337,7 @@ mod tests {
         }
 
         fn find_move(&mut self, _game: &mut GameTree) -> Move {
-            Move::new(PenguinId(0), TileId(0))
+            Move::new(TileId(0), TileId(0))
         }
     }
 

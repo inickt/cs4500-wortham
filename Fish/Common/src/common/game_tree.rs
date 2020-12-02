@@ -30,9 +30,7 @@ impl GameTree {
     /// that state with links to each potential subsequent state, but
     /// not any previous states.
     pub fn new(initial_state: &GameState) -> GameTree {
-        // Assert all penguins are already placed on the board
-        assert!(initial_state.all_penguins().iter()
-            .all(|(_, penguin_id)| initial_state.find_penguin(*penguin_id).unwrap().is_placed()));
+        assert!(initial_state.all_penguins_are_placed());
 
         let valid_moves = initial_state.get_valid_moves();
         if valid_moves.is_empty() {
@@ -180,18 +178,14 @@ impl std::fmt::Debug for LazyGameTree {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::strategy::tests::take_zigzag_placement;
 
     // Starts a game with a 3 row, 5 column board and all penguins placed.
     fn start_game() -> GameTree {
         let mut state = GameState::with_default_board(5, 3, 2);
 
-        let mut tile_ids: Vec<_> = state.board.tiles.iter().map(|(tile_id, _)| *tile_id).collect();
-        tile_ids.sort();
-        tile_ids.reverse();
-
-        for (player_id, penguin_id) in state.all_penguins() {
-            let tile_id = tile_ids.pop().unwrap();
-            state.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
+        while !state.all_penguins_are_placed() {
+            take_zigzag_placement(&mut state);
         }
 
         GameTree::new(&state)
@@ -205,7 +199,7 @@ mod tests {
         for penguin in state.current_player().penguins.iter() {
             let current_tile = state.get_tile(penguin.tile_id.unwrap()).unwrap();
             for tile in current_tile.all_reachable_tiles(&state.board, &occupied_tiles) {
-                expected_valid_moves.push(Move::new(penguin.penguin_id, tile.tile_id))
+                expected_valid_moves.push(Move::new(current_tile.tile_id, tile.tile_id))
             }
         }
 

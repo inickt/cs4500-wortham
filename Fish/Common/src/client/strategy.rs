@@ -3,7 +3,7 @@
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerId;
-use crate::common::action::{Placement, Move};
+use crate::common::action::{ Placement, Move };
 use crate::common::util::{ all_min_by_key, all_max_by_key };
 
 use std::collections::HashMap;
@@ -138,8 +138,8 @@ fn find_best_move(state: &GameState, is_players_turn: bool, moves: HashMap<Move,
     };
 
     // If we still have a tie, settle it by the penguin's position then the destination position in that  order
-    let moves = all_min_by_key(moves, |(move_, _)| state.get_penguin_tile_position(move_.penguin_id).unwrap());
-    let mut moves = all_min_by_key(moves, |(move_, _)| state.board.get_tile_position(move_.tile_id));
+    let moves = all_min_by_key(moves, |(move_, _)| state.board.get_tile_position(move_.from));
+    let mut moves = all_min_by_key(moves, |(move_, _)| state.board.get_tile_position(move_.to));
 
     let (move_, (score, _old_move)) = moves.nth(0).unwrap();
     (score, move_)
@@ -152,20 +152,16 @@ pub mod tests {
 
     /// Place a penguin using the ZigZag strategy
     pub fn take_zigzag_placement(state: &mut GameState) {
-        let player = state.current_player();
-        let player_id = player.player_id;
-        let penguin_id = player.get_unplaced_penguin_id().expect("All penguins are already placed");
-
+        let player = state.current_turn;
         let placement = find_zigzag_placement(state);
-        state.place_avatar_for_player(player_id, penguin_id, placement.tile_id);
+        state.place_avatar_for_player(player, placement.tile_id);
     }
 
     #[test]
     fn test_place_penguin_zigzag() {
         let mut state = GameState::with_default_board(3, 5, 2);
 
-        let penguins_count = state.all_penguins().len();
-        let first_player_id = state.current_player().player_id;
+        let first_player_id = state.current_turn;
 
         state.board.remove_tile(TileId(0)); // add a hole at tile 0
 
@@ -174,20 +170,21 @@ pub mod tests {
 
         let mut penguins_placed = 0;
 
-        for row in 0 .. state.board.height {
+        'outer: for row in 0 .. state.board.height {
             for col in 0 .. state.board.width {
-                if penguins_placed >= penguins_count {
-                    break; // stop iterating through potential locations if we've placed them all
+                if state.all_penguins_are_placed() {
+                    break 'outer; // stop iterating through potential locations if we've placed them all
                 }
+
                 if row == 0 && col == 0 {
                     // hole at 0, 0 so don't try to place in order to keep row/col lined up
                     continue;
                 }
 
-                let prev_player_id = state.current_player().player_id; // record prev player_id
-                let prev_occupied_tiles = state.get_occupied_tiles(); // record prev tiles w/ penguins
+                let prev_player_id = state.current_turn;
+                let prev_occupied_tiles = state.get_occupied_tiles();
 
-                take_zigzag_placement(&mut state); // place the penguin and count it
+                take_zigzag_placement(&mut state);
                 penguins_placed += 1;
 
                 let post_occupied_tiles = state.get_occupied_tiles();
@@ -195,8 +192,7 @@ pub mod tests {
                 // are there still the right amount of penguins placed?
                 assert_eq!(post_occupied_tiles.len(), penguins_placed);
 
-                let new_occupied_tiles = post_occupied_tiles.difference(&prev_occupied_tiles)
-                    .collect::<Vec<&TileId>>();
+                let new_occupied_tiles: Vec<_> = post_occupied_tiles.difference(&prev_occupied_tiles).collect();
                 let placed_tile_id = new_occupied_tiles.first().unwrap();
 
                 // was the new penguin placed in the right spot?
@@ -204,11 +200,6 @@ pub mod tests {
 
                 // did the turn and player update?
                 assert_ne!(state.current_player().player_id, prev_player_id);
-            }
-
-            if penguins_placed >= penguins_count {
-                break; // stop iterating through potential locations if we've placed them all
-                       // (must break from outer loop as well)
             }
         }
 
@@ -229,8 +220,8 @@ pub mod tests {
         // has 3 fish on each tile
         let mut state = GameState::with_default_board(3, 5, 2);
 
-        for _ in 0 .. state.all_penguins().len() {
-            take_zigzag_placement(&mut state); // place all penguins using the zigzag method
+        while !state.all_penguins_are_placed() {
+            take_zigzag_placement(&mut state);
         }
 
         // placements of penguins (p1 = player1, p2 = player2)
@@ -239,17 +230,16 @@ pub mod tests {
         //    p2    p1    p2    11   14
         // 2     6     9     12    15
 
-        // looking ahead 1 turn, the move algorithm should pick the move p1(0,0) -> 2.
+        // looking ahead 1 turn, the move algorithm should pick the move p1(@ TileId 0) -> TileId 2.
         // since all tiles have 3 fish, the algorithm should pick the move with the lowest row,
         // and within that row, the lowest column, since the gain will be 3 for any move.
-        let penguin_to_move = state.find_penguin_at_position((0, 0).into()).unwrap().penguin_id;
+        let penguin_to_move = TileId(0);
 
         let move_ = find_minmax_move(&mut GameTree::new(&state), 1);
         state.move_avatar_for_current_player(move_);
 
-        let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
-        let new_pos = state.board.get_tile_position(new_tile);
-        assert_eq!(new_pos, (0, 2).into());
+        let new_tile = state.find_penguin(penguin_to_move).and_then(|p| p.tile_id);
+        assert_eq!(new_tile, Some(TileId(2)));
     }
 
     /// This test ensures that the algorithm will make winning moves
@@ -258,7 +248,7 @@ pub mod tests {
     fn test_move_penguin_minmax_lookahead() {
         let mut state = GameState::with_default_board(3, 5, 2);
 
-        for _ in 0 .. state.all_penguins().len() {
+        while !state.all_penguins_are_placed() {
             take_zigzag_placement(&mut state); // place all penguins using the zigzag method
         }
 
@@ -281,15 +271,16 @@ pub mod tests {
         // column in the lowest row.
 
         // First move should be (0, 0) to (0, 2)
-        let penguin_to_move = state.find_penguin_at_position((0, 0).into()).unwrap().penguin_id;
+        let penguin_to_move = TileId(0);
         let move_ = find_minmax_move(&mut GameTree::new(&state), 20);
         state.move_avatar_for_current_player(move_);
-        let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
+        let new_tile = state.find_penguin(penguin_to_move).unwrap()
+            .tile_id.unwrap();
         let new_pos = state.board.get_tile_position(new_tile);
         assert_eq!(new_pos, (0, 2).into());
 
         // Second move should be player 2 (1, 0) to (1, 2)
-        let penguin_to_move = state.find_penguin_at_position((1, 0).into()).unwrap().penguin_id;
+        let penguin_to_move = state.board.get_tile_id(1, 0).unwrap();
         let expected_minimizing_move = Move::new(penguin_to_move, state.board.get_tile_id(1, 2).unwrap());
         state.move_avatar_for_current_player(expected_minimizing_move);
 
@@ -297,7 +288,7 @@ pub mod tests {
         // This is the "cornerstone" move of the game, in which player 1 guarantees a win
         // We know now that the algorithm is not simply picking the move with the lowest row and column,
         // because that move would be (2, 0) to (2, 2).
-        let penguin_to_move = state.find_penguin_at_position((4, 0).into()).unwrap().penguin_id;
+        let penguin_to_move = state.board.get_tile_id(4, 0).unwrap();
         let move_ = find_minmax_move(&mut GameTree::new(&state), 20);
         state.move_avatar_for_current_player(move_);
         let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();

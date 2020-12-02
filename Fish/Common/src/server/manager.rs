@@ -205,7 +205,6 @@ mod tests {
     use crate::common::gamestate::GameState;
     use crate::common::tile::TileId;
     use crate::common::boardposn::BoardPosn;
-    use crate::common::penguin::PenguinId;
     use crate::common::game_tree::GameTree;
     use crate::common::action::{Placement, Move};
     use crate::client::strategy::Strategy;
@@ -239,7 +238,7 @@ mod tests {
         }
 
         fn find_move(&mut self, _game: &mut GameTree) -> Move {
-            Move::new(PenguinId(0), TileId(11))
+            Move::new(TileId(0), TileId(11))
         }
     }
 

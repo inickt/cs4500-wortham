@@ -7,7 +7,7 @@
 use crate::common::board::Board;
 use crate::common::tile::{ TileId, Tile };
 use crate::common::player::{ Player, PlayerId, PlayerColor };
-use crate::common::penguin::{ Penguin, PenguinId };
+use crate::common::penguin::Penguin;
 use crate::common::action::{ Move, Placement };
 use crate::common::boardposn::BoardPosn;
 use crate::common::util;
@@ -101,7 +101,7 @@ impl fmt::Debug for GameState {
 
             let penguins = util::map_slice(&player.penguins, |penguin| {
                 match penguin.tile_id {
-                    Some(id) => format!("penguin {} on tile {}", penguin.penguin_id.0, id.0),
+                    Some(id) => format!("penguin on tile {}", id.0),
                     None => "unplaced".to_string(),
                 }
             }).join(", ");
@@ -160,22 +160,22 @@ impl GameState {
     /// 1. Placement on an invalid position (either out of bounds or a hole)
     /// 2. Placement when the players' avatars are already placed
     /// 3. Placement of a penguin that doesn't belong to the current player
-    pub fn place_avatar_for_player(&mut self, player: PlayerId, penguin: PenguinId, tile: TileId) -> Option<()> {
-        self.place_avatar_without_changing_turn(player, penguin, tile)?;
+    pub fn place_avatar_for_player(&mut self, player: PlayerId, tile: TileId) -> Option<()> {
+        self.place_avatar_without_changing_turn(player, tile)?;
         self.advance_turn();
         Some(())
     }
 
     /// Place a player's avatar but don't change whose turn it is.
     /// This is useful to more easily place avatars in bulk during testing.
-    pub fn place_avatar_without_changing_turn(&mut self, player: PlayerId, penguin: PenguinId, tile: TileId) -> Option<()> {
+    pub fn place_avatar_without_changing_turn(&mut self, player: PlayerId, tile: TileId) -> Option<()> {
         let occupied_tiles = self.get_occupied_tiles();
-        
+
         if occupied_tiles.contains(&tile) {
             None
         } else {
             let player = self.players.get_mut(&player)?; 
-            player.place_penguin(penguin, tile, &self.board)
+            player.place_penguin(tile, &self.board)
         }
     }
 
@@ -188,34 +188,29 @@ impl GameState {
     /// This function will choose which penguin to place for the current player, so it is
     /// impossible for the player to place a penguin that is not theirs.
     pub fn place_avatar_for_current_player(&mut self, placement: Placement) -> Option<()> {
-        let penguin = self.current_player().get_unplaced_penguin_id()?;
-        self.place_avatar_without_changing_turn(self.current_turn, penguin, placement.tile_id)?;
-        self.advance_turn();
-        Some(())
+        self.place_avatar_for_player(self.current_turn, placement.tile_id)
     }
 
     /// Moves a placed avatar from one position to another on the board,
     /// removes the tile that penguin was on, and advances the turn.
     /// Returns Some(()) on success, or None if the player makes an invalid move.
-    /// An invalid placement is one of:
+    /// An invalid move is one of:
     /// 1. Move to an invalid position (either out of bounds or hole)
-    /// 2. Move when the player has other unplaced avatars
-    /// 3. Move when the current avatar has yet to be placed
-    /// 4. Placement on a tile that is not accessible within a straight line
+    /// 2. Move when the current avatar has yet to be placed
+    /// 3. Move to a tile that is not accessible within a straight line
     ///    of the current tile, with no holes in between.
-    /// 5. Move a penguin that doesn't belong to the player
-    pub fn move_avatar_for_player_without_changing_turn(&mut self, player: PlayerId, penguin: PenguinId, destination: TileId) -> Option<()> {
+    /// 4. Move of a penguin that doesn't belong to the player
+    pub fn move_avatar_for_player_without_changing_turn(&mut self, player: PlayerId, penguin_start_tile: TileId, destination: TileId) -> Option<()> {
         let occupied = &self.get_occupied_tiles();
         let player = self.players.get_mut(&player)?;
-        let current_tile = player.find_penguin(penguin)?.tile_id?;
-        player.move_penguin(penguin, destination, &self.board, occupied)?;
-        player.score += self.board.remove_tile(current_tile);
+        player.move_penguin(penguin_start_tile, destination, &self.board, occupied)?;
+        player.score += self.board.remove_tile(penguin_start_tile);
         Some(())
     }
 
     /// Helper function which moves an avatar for the player whose turn it currently is.
     pub fn move_avatar_for_current_player(&mut self, move_: Move) -> Option<()> {
-        self.move_avatar_for_player_without_changing_turn(self.current_turn, move_.penguin_id, move_.tile_id)?;
+        self.move_avatar_for_player_without_changing_turn(self.current_turn, move_.from, move_.to)?;
         self.advance_turn();
         Some(())
     }
@@ -261,44 +256,29 @@ impl GameState {
 
         penguins_to_move.iter().flat_map(|penguin| {
             // penguins in Games are placed, so should always be Some
-            let starting_tile_id = penguin.tile_id.expect(&format!("Penguin {:?} was not placed!", penguin.penguin_id)); 
+            let starting_tile_id = penguin.tile_id.expect("A penguin was not placed!"); 
             let starting_tile = self.get_tile(starting_tile_id).expect("A penguin is placed on a hole");
-            let penguin_id = penguin.penguin_id;
 
             starting_tile.all_reachable_tiles(&self.board, &occupied_tiles)
                 .into_iter()
-                .map(move |destination| Move::new(penguin_id, destination.tile_id))
+                .map(move |destination| Move::new(starting_tile_id, destination.tile_id))
         }).collect()
-    }
-
-    // Collect penguins for every player, along with which player they belong to
-    pub fn all_penguins(&self) -> Vec<(PlayerId, PenguinId)> {
-        self.players.iter().flat_map(|(&player_id, player)| {
-            player.penguins.iter().map(move |penguin| (player_id, penguin.penguin_id))
-        }).collect()
-    }
-
-    /// Get a penguin given its PenguinId
-    pub fn find_penguin(&self, id: PenguinId) -> Option<&Penguin> {
-        self.players.iter().find_map(|(_, player)| player.find_penguin(id))
     }
 
     /// Get a penguin at a position, None if no penguin at that position
     pub fn find_penguin_at_position(&self, posn: BoardPosn) -> Option<&Penguin> {
-        let tile = self.board.get_tile(posn.x, posn.y)?;
+        let tile = self.board.get_tile_id(posn.x, posn.y)?;
         self.players.iter().find_map(|(_, player)| {
-            player.penguins.iter().find(|penguin| {
-                match penguin.tile_id {
-                    Some(tile_id) => tile_id == tile.tile_id,
-                    None => false
-                }
-            })
+            player.find_penguin(tile)
         })
     }
 
-    pub fn get_penguin_tile_position(&self, penguin_id: PenguinId) -> Option<BoardPosn> {
-        let penguin = self.find_penguin(penguin_id)?;
-        penguin.tile_id.map(|id| self.board.get_tile_position(id))
+    /// Search for the penguin at the given TileId and return it if possible.
+    /// Returns None if no penguin at that location was found.
+    pub fn find_penguin(&self, tile: TileId) -> Option<&Penguin> {
+        self.players.iter().find_map(|(_, player)| {
+            player.find_penguin(tile)
+        })
     }
 
     /// Returns the player whose turn it currently is
@@ -310,7 +290,7 @@ impl GameState {
     /// some players have won, or there are no players left in the game.
     pub fn is_game_over(&self) -> bool {
         let game_over = self.winning_players.is_some() || self.players.is_empty();
-        assert_eq!(!self.all_penguins_are_placed() || self.can_any_player_move_penguin(), !game_over);
+        assert_eq!(self.all_penguins_are_placed() || self.can_any_player_move_penguin(), !game_over);
         game_over
     }
 
@@ -432,9 +412,9 @@ pub mod tests {
         let board_with_holes = Board::with_holes(2, 2, holes, 1);
         let mut gamestate = GameState::new(board_with_holes, 4);
         let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
-        let penguin_id = player.penguins[0].penguin_id;
+
         assert!(!gamestate.can_any_player_move_penguin());
-        gamestate.place_avatar_without_changing_turn(player_id, penguin_id, TileId(0));
+        gamestate.place_avatar_without_changing_turn(player_id, TileId(0));
         assert!(!gamestate.can_any_player_move_penguin());
 
 
@@ -442,9 +422,9 @@ pub mod tests {
         let board = Board::with_no_holes(3, 3, 3);
         let mut gamestate = GameState::new(board, 4);
         let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
-        let penguin_id = player.penguins[0].penguin_id;
+
         assert!(!gamestate.can_any_player_move_penguin());
-        gamestate.place_avatar_without_changing_turn(player_id, penguin_id, TileId(0));
+        gamestate.place_avatar_without_changing_turn(player_id, TileId(0));
         assert!(gamestate.can_any_player_move_penguin());
 
         // Can no players move when all penguins are blocked by holes or other penguins?
@@ -454,12 +434,10 @@ pub mod tests {
         let board_with_holes = Board::with_holes(2, 2, holes, 1);
         let mut gamestate = GameState::new(board_with_holes, 4);
         let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
-        let penguin_id = player.penguins[0].penguin_id;
-        let penguin_id_2 = player.penguins[1].penguin_id;
         assert!(!gamestate.can_any_player_move_penguin());
-        gamestate.place_avatar_without_changing_turn(player_id, penguin_id, TileId(1));
+        gamestate.place_avatar_without_changing_turn(player_id, TileId(1));
         assert!(&gamestate.can_any_player_move_penguin()); // no penguin at 2, so can move
-        gamestate.place_avatar_without_changing_turn(player_id, penguin_id_2, TileId(2));
+        gamestate.place_avatar_without_changing_turn(player_id, TileId(2));
         assert!(!gamestate.can_any_player_move_penguin()); // penguin at 2, so cannot move
     }
 
@@ -468,34 +446,23 @@ pub mod tests {
         let mut gamestate = GameState::with_default_board(3, 3, 2);
         gamestate.board.remove_tile(TileId(5));
 
-        let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
-
-        let unowned_penguin = crate::common::penguin::Penguin::new();
-        let penguin1 = player.penguins[0].penguin_id;
-        let penguin2 = player.penguins[1].penguin_id;
-
-        // Player tried to place down a penguin they don't own
-        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, unowned_penguin.penguin_id, TileId(4)), None);
+        let player_id = *gamestate.players.iter().nth(0).unwrap().0;
 
         // Player places a penguin at a valid spot
-        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, penguin1, TileId(4)), Some(()));
-
-        // Placing an already-placed penguin is invalid
-        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, penguin1, TileId(4)), None);
+        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, TileId(4)), Some(()));
 
         // Player tried to place a penguin at an invalid location
-        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, penguin2, TileId(10)), None);
+        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, TileId(10)), None);
 
         // Player tried to place a penguin at a hole
-        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, penguin2, TileId(5)), None);
+        assert_eq!(gamestate.place_avatar_without_changing_turn(player_id, TileId(5)), None);
     }
 
     #[test]
     fn test_move_avatar() {
         let mut gamestate = GameState::with_default_board(3, 3, 2);
 
-        let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
-        let penguin_id = player.penguins[0].penguin_id;
+        let player_id = *gamestate.players.iter().nth(0).unwrap().0;
 
         // Reachable tiles from 0 are [0, 2, 1, 5]
         let tile_0 = TileId(0);
@@ -503,20 +470,20 @@ pub mod tests {
         let unreachable_tile = TileId(3);
 
         // Move failed: penguin not yet placed
-        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, penguin_id, tile_0), None);
+        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, tile_0, reachable_tile), None);
 
-        gamestate.place_avatar_without_changing_turn(player_id, penguin_id, tile_0);
+        gamestate.place_avatar_without_changing_turn(player_id, tile_0);
 
         // Move failed: tile not reachable from tile 0
-        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, penguin_id, tile_0), None);
-        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, penguin_id, unreachable_tile), None);
+        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, tile_0, tile_0), None);
+        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, tile_0, unreachable_tile), None);
 
         // success, penguin should now be on tile 5
-        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, penguin_id, reachable_tile), Some(()));
+        assert_eq!(gamestate.move_avatar_for_player_without_changing_turn(player_id, tile_0, reachable_tile), Some(()));
 
         // Finally, assert that the position of the penguin actually changed
         let player = gamestate.players.iter_mut().nth(0).unwrap().1;
-        let penguin_pos = player.find_penguin_mut(penguin_id).and_then(|penguin| penguin.tile_id);
+        let penguin_pos = player.find_penguin_mut(reachable_tile).and_then(|penguin| penguin.tile_id);
         assert_eq!(penguin_pos, Some(reachable_tile));
     }
 
