@@ -9,7 +9,10 @@ const TIMEOUT: Duration = Duration::from_secs(30);
 
 fn main() {
     let (num_clients, address) = parse_args();
+    run_clients(num_clients, address);
+}
 
+fn run_clients(num_clients: usize, address: &str) {
     for _ in 0..num_clients {
         thread::spawn(|| {
             // TODO should probably close whole program if any can't connect?
