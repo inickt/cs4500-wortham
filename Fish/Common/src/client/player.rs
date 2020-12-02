@@ -1,9 +1,21 @@
 //! This file contains the implementation for an in-house AI player
 //! for the Fish game.
-use crate::common::action::Action;
+use crate::common::gamestate::GameState;
+use crate::common::game_tree::GameTree;
+use crate::common::action::{Action, Placement, Move, PlayerMove};
 use crate::client::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use crate::common::gamephase::GamePhase;
 use crate::server::message::*;
+
+
+pub trait PlayerInterface {
+    fn tournament_starting(&mut self) -> Option<()>;
+    fn tournament_ending(&mut self, won: bool) -> Option<()>;
+
+    fn initialize_game(&mut self, initial_gamestate: &GameState) -> Option<()>;
+    fn get_placement(&mut self, gamestate: &GameState, previous: Vec<PlayerMove>) -> Option<Placement>;
+    fn get_move(&mut self, game: &mut GameState) -> Option<Move>;
+}
 
 /// Represents the in-house AI player for the Fish game.
 /// This player holds their own GamePhase and is responsible for using their strategy

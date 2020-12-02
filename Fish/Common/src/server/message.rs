@@ -50,6 +50,23 @@ pub enum ServerToClientMessage {
     End((bool,)),
 }
 
+impl ServerToClientMessage {
+    pub fn serialize(self) -> String {
+        match self {
+            ServerToClientMessage::Start(_) => start_message(),
+            _ => unimplemented!()
+        }
+    }
+}
+
+// TODO proof of concept, deserializing these might be harder
+#[derive(Deserialize)]
+pub enum ClientToServerMessage {
+    Void(),
+    Position(),
+    Action(),
+}
+
 /// Return a start message encoded in json in a String
 pub fn start_message() -> String {
     serde_json::to_string(&json!([ "start", [true] ])).unwrap()
