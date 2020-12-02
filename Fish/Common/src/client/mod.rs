@@ -19,6 +19,7 @@ use gdk::RGBA;
 pub mod strategy;
 pub mod player;
 pub mod proxy_player;
+pub mod proxy_client;
 
 const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";

@@ -15,7 +15,7 @@ use serde_json::Deserializer;
 
 pub struct ProxyPlayer {
     stream: TcpStream,
-    timeout: Duration
+    timeout: Duration,
 }
 
 impl ProxyPlayer {
