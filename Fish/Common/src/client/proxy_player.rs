@@ -3,7 +3,7 @@ use crate::common::action::{Action, Placement, Move, PlayerMove};
 use crate::common::util;
 use crate::common::gamestate::GameState;
 use crate::common::game_tree::GameTree;
-use crate::server::message::{ ClientToServerMessage, ServerToClientMessage };
+use crate::server::message::{ ClientToServerMessage, ServerToClientMessage, serialize_gamestate, convert_to_json_actions };
 
 use std::net::TcpStream;
 use std::time::Duration;
@@ -31,19 +31,10 @@ impl ProxyPlayer {
         })
     }
 
-    // TODO probably don't need this abstraction since we need to convert to the JSON 
-    // representations before this anyways
-    fn send(&mut self, message: ServerToClientMessage) -> Option<()> {
-        // TODO can we one line this?   
-        self.stream.write(message.serialize().as_bytes()).ok()?;
-        Some(())
-    }
-
     fn call(&mut self, message: ServerToClientMessage) -> Option<ClientToServerMessage> {
-        self.send(message)?;
+        self.stream.write(message.serialize().as_bytes()).ok()?;
         self.receive()
     }
-
 }
 
 impl PlayerInterface for ProxyPlayer {
@@ -73,11 +64,20 @@ impl PlayerInterface for ProxyPlayer {
         }
     }
 
-    fn get_placement(&mut self, gamestate: &GameState, previous: Vec<PlayerMove>) -> Option<Placement> {
-        unimplemented!()
+    fn get_placement(&mut self, gamestate: &GameState) -> Option<Placement> {
+        let json_gamestate = serialize_gamestate(gamestate);
+        match self.call(ServerToClientMessage::Setup((json_gamestate,)))? {
+            ClientToServerMessage::Position(placement) => Some(placement),
+            _ => None
+        }
     }
 
-    fn get_move(&mut self, game: &mut GameState) -> Option<Move> {
-        unimplemented!()
+    fn get_move(&mut self, gamestate: &GameState, previous: &[PlayerMove]) -> Option<Move> {
+        let json_gamestate = serialize_gamestate(gamestate);
+        let json_moves = convert_to_json_actions(&previous);
+        match self.call(ServerToClientMessage::TakeTurn(json_gamestate, json_moves))? {
+            ClientToServerMessage::Action(move_) => Some(move_),
+            _ => None
+        }
     }
 }

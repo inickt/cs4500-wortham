@@ -13,8 +13,8 @@ pub trait PlayerInterface {
     fn tournament_ending(&mut self, won: bool) -> Option<()>;
 
     fn initialize_game(&mut self, initial_gamestate: &GameState) -> Option<()>;
-    fn get_placement(&mut self, gamestate: &GameState, previous: Vec<PlayerMove>) -> Option<Placement>;
-    fn get_move(&mut self, game: &mut GameState) -> Option<Move>;
+    fn get_placement(&mut self, gamestate: &GameState) -> Option<Placement>;
+    fn get_move(&mut self, gamestate: &GameState, previous: &[PlayerMove]) -> Option<Move>;
 }
 
 /// Represents the in-house AI player for the Fish game.

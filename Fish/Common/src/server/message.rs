@@ -1,5 +1,5 @@
 use crate::common::gamestate::GameState;
-use crate::common::action::PlayerMove;
+use crate::common::action::{ PlayerMove, Placement, Move };
 use crate::common::board::Board;
 use crate::common::player::{ Player, PlayerColor };
 use crate::common::penguin::Penguin;
@@ -59,12 +59,12 @@ impl ServerToClientMessage {
     }
 }
 
-// TODO proof of concept, deserializing these might be harder
+// TODO proof of concept, deserializing is completely wrong/use of tile ID etc
 #[derive(Deserialize)]
 pub enum ClientToServerMessage {
     Void(),
-    Position(),
-    Action(),
+    Position(Placement),
+    Action(Move),
 }
 
 /// Return a start message encoded in json in a String
@@ -96,7 +96,7 @@ pub fn end_message(winner: bool) -> String {
 }
 
 
-fn convert_to_json_actions(moves: &[PlayerMove]) -> Vec<JSONAction> {
+pub fn convert_to_json_actions(moves: &[PlayerMove]) -> Vec<JSONAction> {
     util::map_slice(moves, |move_| [ [move_.from.y, move_.from.x] , [move_.to.y, move_.to.x] ])
 }
 
@@ -136,7 +136,7 @@ fn serialize_players(gamestate: &GameState) -> Vec<JSONPlayer> {
     })
 }
 
-fn serialize_gamestate(gamestate: &GameState) -> JSONGameState {
+pub fn serialize_gamestate(gamestate: &GameState) -> JSONGameState {
     let board = serialize_board(&gamestate.board);
     let players = serialize_players(gamestate);
 

@@ -18,7 +18,7 @@ use gdk::RGBA;
 /// Declare external modules
 pub mod strategy;
 pub mod player;
-pub mod remote_proxy;
+pub mod proxy_player;
 
 const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";
