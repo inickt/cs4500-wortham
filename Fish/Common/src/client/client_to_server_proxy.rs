@@ -1,9 +1,5 @@
 use crate::server::client::Client;
-use crate::common::action::{ Placement, Move, PlayerMove };
 use crate::common::util;
-use crate::common::gamestate::GameState;
-use crate::common::game_tree::GameTree;
-use crate::common::player::PlayerColor;
 use crate::server::message::*;
 
 use std::net::TcpStream;
@@ -29,32 +25,34 @@ impl ClientToServerProxy {
     }
 
     pub fn tournament_loop(&mut self) -> Option<bool> {
+        self.send(ClientToServerMessage::Name(self.name))?;
         loop {
             match self.receive()? {
-                // TODO use client
-                // TODO add name
                 ServerToClientMessage::Start(_) => {
-                    // println!("Starting tournament");
+                    self.client.tournament_starting()?;
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
                 ServerToClientMessage::End((won,)) => {
-                    println!("Ending tournament, won: {}", won);
+                    self.client.tournament_ending(won)?;
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                     return Some(won)
                 },
                 ServerToClientMessage::PlayingAs((color,)) => {
+                    // TODO shoot this is where this falls through the cracks. what to do about initialize?
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
                 ServerToClientMessage::PlayingWith((other_colors,)) => {
+                    // TODO shoot this is where this falls through the cracks. what to do about initialize?
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
-                ServerToClientMessage::Setup((JSONGameState,)) => {
-                    // TODO
-                    self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
+                ServerToClientMessage::Setup((json_gamestate,)) => {
+                    let placement = self.client.get_placement(&json_gamestate.to_common_game_state())?;
+                    self.send(ClientToServerMessage::Position(placement_to_json_position(placement)))?;
                 },
-                ServerToClientMessage::TakeTurn(JSONGameState, _) => {
-                    // TODO
-                    self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
+                ServerToClientMessage::TakeTurn(json_gamestate, _) => {
+                    // TODO pass history after converting if we want to keep it
+                    let move_ = self.client.get_move(&json_gamestate.to_common_game_state(), vec![])?;
+                    self.send(ClientToServerMessage::Action(move_to_json_action(move_)))?;
                 },
             }
         }
@@ -68,7 +66,7 @@ impl ClientToServerProxy {
     }
 
     fn send(&mut self, message: ClientToServerMessage) -> Option<()> {
-        // TODO
+        self.stream.write(serde_json::to_string(&message).ok()?.as_bytes()).ok()?;
         Some(())
-    } 
+    }
 }

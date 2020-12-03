@@ -1,5 +1,6 @@
-use fish::client::proxy_client::ProxyClient;
-use fish::client::strategy::ZigZagMinMaxStrategy;
+use fish::client::client_to_server_proxy::ClientToServerProxy;
+use fish::server::ai_client::AIClient;
+use fish::server::strategy::ZigZagMinMaxStrategy;
 
 use std::thread;
 use std::time::Duration;
@@ -13,12 +14,16 @@ fn main() {
 }
 
 fn run_clients(num_clients: usize, address: String) {
-    let threads = (0..num_clients).map(|_| {
+    let threads = (0..num_clients).map(|num| {
         let address = address.clone();
         thread::spawn(move || {
-            let mut client = ProxyClient::new(Box::new(ZigZagMinMaxStrategy), &address, TIMEOUT)
-                .expect("Unable to connect to server");
-            client.tournament_loop();
+            let ai_player = AIClient::new(Box::new(ZigZagMinMaxStrategy));
+            let mut client = ClientToServerProxy::new("AIClient", ai_player, &address, TIMEOUT)
+                .expect(format!("Unable to connect to server on thread {}", num));
+            match client.tournament_loop() {
+                Some(won) => println!("AI Player {} completed tournament and {}.", num, if won { "won" } else { "lost" }),
+                None =>  println!("AI Player {} was kicked or another error occurred.", num),
+            };
         })
     }).collect::<Vec<_>>();
     for thread in threads {
