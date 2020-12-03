@@ -70,32 +70,3 @@ impl Placement {
         Placement { tile_id }
     }
 }
-
-/// Represents any action a player may take on their turn.
-/// 
-/// Used for serializing and deserializing player actions for
-/// communicating with the server.
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Action {
-    PlacePenguin(Placement),
-    MovePenguin(Move)
-}
-
-unsafe impl Send for Action {}
-unsafe impl Sync for Action {}
-
-impl Action {
-    pub fn as_placement(self) -> Option<Placement> {
-        match self {
-            Action::PlacePenguin(placement) => Some(placement),
-            _ => None,
-        }
-    }
-
-    pub fn as_move(self) -> Option<Move> {
-        match self {
-            Action::MovePenguin(move_) => Some(move_),
-            _ => None,
-        }
-    }
-}

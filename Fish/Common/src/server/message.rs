@@ -50,21 +50,18 @@ pub enum ServerToClientMessage {
     End((bool,)),
 }
 
-impl ServerToClientMessage {
-    pub fn serialize(self) -> String {
-        match self {
-            ServerToClientMessage::Start(_) => start_message(),
-            _ => unimplemented!()
-        }
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum JSONVoid {
+    Void
 }
 
-// TODO proof of concept, deserializing is completely wrong/use of tile ID etc
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum ClientToServerMessage {
-    Void(), // "void"
-    Position(Placement), // position: [y, x]
-    Action(Move), // [position, position]
+    Void(JSONVoid), // should always use "void"
+    Position(JSONPosition),
+    Action(JSONAction), 
 }
 
 /// Return a start message encoded in json in a String

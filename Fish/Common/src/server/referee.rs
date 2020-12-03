@@ -2,13 +2,13 @@
 //! which runs complete games of Fish. To do this, it starts and runs the
 //! game loop, sending the gamestate to all players each turn then retrieving
 //! a player's move and validating it until the game is over.
-use crate::common::action::{ Action, PlayerMove };
+use crate::common::action::PlayerMove;
 use crate::common::board::Board;
 use crate::common::gamestate::GameState;
 use crate::common::gamephase::GamePhase;
 use crate::common::game_tree::GameTree;
 use crate::common::player::{ PlayerId, PlayerColor };
-use crate::server::serverclient::{ Client, ClientProxy };
+use crate::server::client::{ Client, ClientWithId };
 use crate::server::message::*;
 
 /// A referee is in charge of starting, running, and managing a game of fish.
@@ -27,7 +27,7 @@ use crate::server::message::*;
 struct Referee {
     /// Client input/output stream data, indexed on GameState's PlayerId.
     /// This Vec is in turn_order for each player.
-    clients: Vec<Client>,
+    clients: Vec<ClientWithId>,
 
     /// The state of current game, separated by the current phase it is in.
     phase: GamePhase,
@@ -68,7 +68,7 @@ pub enum ClientStatus {
 /// the initial game state before the first turn.
 /// 
 /// Returns the Win,Loss,Kicked status of each player and the final GameState
-pub fn run_game(clients: Vec<ClientProxy>, board: Option<Board>) -> GameResult {
+pub fn run_game(clients: Vec<Client>, board: Option<Board>) -> GameResult {
     let clients: Vec<_> = clients.into_iter().enumerate()
         .map(|(id, player)| Client::new(id, player)).collect();
     run_game_shared(&clients, board)
@@ -86,12 +86,11 @@ pub fn run_game(clients: Vec<ClientProxy>, board: Option<Board>) -> GameResult {
 /// the initial game state before the first turn.
 /// 
 /// Returns the Win,Loss,Kicked status of each player and the final GameState
-pub fn run_game_shared(clients: &[Client], board: Option<Board>) -> GameResult {
+pub fn run_game_shared(clients: &[ClientWithId], board: Option<Board>) -> GameResult {
     let board = board.unwrap_or(Board::with_no_holes(5, 5, 3));
     let mut referee = Referee::new(clients.to_vec(), board);
 
-    referee.send_playing_as_messages();
-    referee.send_playing_with_messages();
+    referee.initialize_clients();
 
     while !referee.is_game_over() {
         referee.do_player_turn();
@@ -101,7 +100,7 @@ pub fn run_game_shared(clients: &[Client], board: Option<Board>) -> GameResult {
 }
 
 impl Referee {
-    fn new(clients: Vec<Client>, board: Board) -> Referee {
+    fn new(clients: Vec<ClientWithId>, board: Board) -> Referee {
         let client_ids = clients.iter().map(|client| client.id).collect();
         let state = GameState::with_players(board, client_ids);
         let phase = GamePhase::PlacingPenguins(state);
@@ -118,47 +117,51 @@ impl Referee {
         self.clients.iter().find(|client| client.id == current_player_id).unwrap()
     }
 
+    fn initialize_clients(&mut self) {
+        // TODO send initial game state
+    }
+
     /// Sends the "playing-as" message to all clients.
     /// This will kick any clients that fail to accept the message.
-    fn send_playing_as_messages(&mut self) {
-        let mut clients_to_kick = vec![];
+    // fn send_playing_as_messages(&mut self) {
+    //     let mut clients_to_kick = vec![];
         
-        for client in self.clients.iter() {
-            let message = playing_as_message(self.get_client_player_color(client));
+    //     for client in self.clients.iter() {
+    //         let message = playing_as_message(self.get_client_player_color(client));
 
-            if client.send(message.as_bytes()).is_err() {
-                clients_to_kick.push(client.id);
-            }
-        }
+    //         if client.send(message.as_bytes()).is_err() {
+    //             clients_to_kick.push(client.id);
+    //         }
+    //     }
 
-        for id in clients_to_kick {
-            self.kick_player(id);
-        }
-    }
+    //     for id in clients_to_kick {
+    //         self.kick_player(id);
+    //     }
+    // }
 
     /// Sends the "playing-with" message to all clients.
     /// This will kick any clients that fail to accept the message.
-    fn send_playing_with_messages(&mut self) {
-        let state = self.phase.get_state();
-        let mut clients_to_kick = vec![];
+    // fn send_playing_with_messages(&mut self) {
+    //     let state = self.phase.get_state();
+    //     let mut clients_to_kick = vec![];
 
-        for client in self.clients.iter() {
-            let current_player_color = self.get_client_player_color(client);
-            let other_colors = state.players.iter()
-                .map(|player| player.1.color)
-                .filter(|color| *color != current_player_color)
-                .collect::<Vec<PlayerColor>>();
+    //     for client in self.clients.iter() {
+    //         let current_player_color = self.get_client_player_color(client);
+    //         let other_colors = state.players.iter()
+    //             .map(|player| player.1.color)
+    //             .filter(|color| *color != current_player_color)
+    //             .collect::<Vec<PlayerColor>>();
 
-            let message = playing_with_message(&other_colors);
-            if client.send(message.as_bytes()).is_err() {
-                clients_to_kick.push(client.id);
-            }
-        }
+    //         let message = playing_with_message(&other_colors);
+    //         if client.send(message.as_bytes()).is_err() {
+    //             clients_to_kick.push(client.id);
+    //         }
+    //     }
 
-        for id in clients_to_kick {
-            self.kick_player(id);
-        }
-    }
+    //     for id in clients_to_kick {
+    //         self.kick_player(id);
+    //     }
+    // }
 
     /// Returns the winners, losers, and kicked players of the game, along
     /// with the final game state of the game.
@@ -209,9 +212,7 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_placement(&mut self) -> Option<()> {
-        let message = setup_message(self.phase.get_state());
-        let placement = self.get_player_action(message)?.as_placement()?;
-
+        let placement = self.current_client().get_placement(self.phase.get_state())?;
         match &mut self.phase {
             GamePhase::PlacingPenguins(gamestate) => gamestate.place_avatar_for_current_player(placement),
             _ => unreachable!("do_player_placement called outside of the PlacingPenguins phase"),
@@ -225,9 +226,7 @@ impl Referee {
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
         let move_history = self.get_move_history_for_current_client();
-        let message = take_turn_message(self.phase.get_state(), &move_history);
-        let move_ = self.get_player_action(message)?.as_move()?;
-
+        let move_ = self.current_client().get_move(self.phase.get_state(), move_history)?;
         let current_player_color = self.get_client_player_color(self.current_client());
 
         match &mut self.phase {
@@ -256,24 +255,15 @@ impl Referee {
         history
     }
 
-    /// Retrieves the Action of the player whose turn it currently is.
-    /// Will prompt the player for a placement/move by sending them the
-    /// given prompt (either a setup message or a take-turn message) before
-    /// waiting for their placement or move sent back as a response
-    fn get_player_action(&mut self, prompt: String) -> Option<Action> {
-        let current_player = self.current_client();
-        current_player.send(prompt.as_bytes()).ok()?;
-        current_player.proxy.borrow_mut().get_action()
-    }
-
     /// Kick the given player from the game, removing all their penguins and
     /// their position in the turn order. This does not notify the player that
     /// they were kicked.
     fn kick_player(&mut self, player: PlayerId) {
         self.phase.get_state_mut().remove_player(player);
-        self.clients.iter_mut()
-            .find(|client| client.id == player)
-            .map(|client| *client.proxy.borrow_mut() = ClientProxy::Kicked);
+        // TODO: need to fix kicking
+        // self.clients.iter_mut()
+        //     .find(|client| client.id == player)
+        //     .map(|client| *client.proxy.borrow_mut() = ClientProxy::Kicked);
 
         // Must manually update after kicking a player to update the tree of valid moves in the game
         // tree, if needed

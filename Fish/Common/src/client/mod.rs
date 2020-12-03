@@ -16,10 +16,7 @@ use gtk::{ StateFlags, Image, Fixed };
 use gdk::RGBA;
 
 /// Declare external modules
-pub mod strategy;
-pub mod player;
-pub mod proxy_player;
-pub mod proxy_client;
+pub mod client_to_server_proxy;
 
 const FISH_FILENAME_TEMPLATE: &str = "assets/fish";
 const HEXAGON_FILENAME: &str = "assets/hexagon.png";

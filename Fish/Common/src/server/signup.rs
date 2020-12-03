@@ -1,51 +1,23 @@
-use crate::server::serverclient::ClientProxy;
-use crate::server::connection::PlayerConnection;
+use crate::server::remote_client::RemoteClient;
 
 use std::net::TcpListener;
 use std::time::{ Duration, Instant };
 
 const SIGNUP_TIMEOUT: Duration = Duration::from_secs(30);
+const SIGNUP_NAME_TIMEOUT: Duration = Duration::from_secs(10);
 
 const MIN_SIGNUP_PLAYERS: usize = 5;
 const MAX_SIGNUP_PLAYERS: usize = 10;
 
-/*
-enum ServerToClientMessage {
-    Start(bool),
-    PlayingAs(JSONPenguinColor),
-    PlayingWith(Vec<JSONPenguinColor>),
-    Setup(JSONGameState),
-    TakeTurn(JSONGameState, Vec<Action>),
-    End(bool),
-}
-*/
-
-
-/* referee flow
-for player in players {
-    player.send(play as message)
-}
-
-for player in players {
-    player.send(play with message)
-}
-
-setup...
-<- place
-
-take-turn...
-<- action
-*/
-
-pub fn signup_clients(port: &str) -> Option<Vec<ClientProxy>> {
+pub fn signup_clients(port: &str, client_timeout: Duration) -> Option<Vec<RemoteClient>> {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     listener.set_nonblocking(true).unwrap();
 
     let mut clients = vec![];
-    await_clients(&listener, &mut clients);
+    await_clients(&listener, &mut clients, client_timeout);
 
     if clients.len() < MIN_SIGNUP_PLAYERS {
-        await_clients(&listener, &mut clients);
+        await_clients(&listener, &mut clients, client_timeout);
     }
 
     // If we still don't have enough players then give up and return None
@@ -56,8 +28,7 @@ pub fn signup_clients(port: &str) -> Option<Vec<ClientProxy>> {
     }
 }
 
-
-fn await_clients(listener: &TcpListener, clients: &mut Vec<ClientProxy>) {
+fn await_clients(listener: &TcpListener, clients: &mut Vec<RemoteClient>, client_timeout: Duration) {
     let now = Instant::now();
 
     // Accept clients and their names in order, blocking for each client until they are
@@ -65,10 +36,10 @@ fn await_clients(listener: &TcpListener, clients: &mut Vec<ClientProxy>) {
     // from the next client.
     while now.elapsed() < SIGNUP_TIMEOUT && clients.len() < MAX_SIGNUP_PLAYERS {
         if let Ok((stream, _)) = listener.accept() {
-            let mut connection = PlayerConnection::new(stream);
-            if connection.receive_name().is_some() {
-                let proxy = ClientProxy::Remote(connection);
-                clients.push(proxy);
+            let mut remote_client = RemoteClient::new(stream, client_timeout);
+            // as long as clients have a valid name we don't care if they are unique
+            if remote_client.get_name(SIGNUP_NAME_TIMEOUT).is_some() {
+                clients.push(remote_client);
             }
         }
     }

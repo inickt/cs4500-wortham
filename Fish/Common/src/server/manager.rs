@@ -2,7 +2,7 @@
 //! which sets up games for and runs an entire tournament.
 use crate::server::referee;
 use crate::server::referee::ClientStatus;
-use crate::server::serverclient::{ Client, ClientProxy };
+use crate::server::client::{ Client, ClientWithId };
 use crate::server::message::*;
 use crate::common::gamestate;
 use crate::common::board::Board;
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 /// Represents a single game within a bracket, with each client in the Vec
 /// being a client in the game. The order of this grouping will be the same
 /// as the turn order in the resulting game.
-type PlayerGrouping = Vec<Client>;
+type PlayerGrouping = Vec<ClientWithId>;
 
 /// Represents one round of Games, either a Round containing one PlayerGrouping
 /// per Fish game to play, or an End, which represents the end of the whole tournament.
@@ -44,15 +44,15 @@ enum Bracket {
 ///
 /// It is assumed that the given list of players should not have any
 /// Kicked clients.
-pub fn run_tournament(proxies: Vec<ClientProxy>, board: Option<Board>) -> Vec<ClientStatus> {
+pub fn run_tournament(clients: Vec<Box<dyn Client>>, board: Option<Board>) -> Vec<ClientStatus> {
     let mut results = BTreeMap::new();
 
-    let clients = proxies.into_iter().enumerate().map(|(id, client)| {
+    let clients = clients.into_iter().enumerate().map(|(id, client)| {
         // Clients win by default until they lose a game or are kicked.
         // This means for the tournament of a single player, they win by default
         // even though they played 0 games
         results.insert(PlayerId(id), ClientStatus::Won);
-        Client::new(id, client)
+        ClientWithId::new(id, client)
     }).collect::<Vec<_>>();
 
     let clients = notify_tournament_started(&clients, &mut results);
@@ -66,32 +66,36 @@ pub fn run_tournament(proxies: Vec<ClientProxy>, board: Option<Board>) -> Vec<Cl
 /// Notify the given clients that the tournament has started. If a client fails to accept the message,
 /// then their status is changed to Kicked. The players that successfully accepted the starting
 /// message are returned in the same order.
-fn notify_tournament_started(clients: &[Client], results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<Client> {
+fn notify_tournament_started(clients: &[ClientWithId], results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<ClientWithId> {
     clients.iter().filter_map(|client| {
         let message = start_message();
 
-        match client.proxy.borrow_mut().send(message.as_bytes()) {
-            Ok(_) => Some(client.clone()),
-            Err(_) => {
-                results.insert(client.id, ClientStatus::Kicked);
-                None
-            }
-        }
+        // TODO
+        // match client.client.borrow_mut().send(message.as_bytes()) {
+        //     Ok(_) => Some(clientid.clone()),
+        //     Err(_) => {
+        //         results.insert(clientid.id, ClientStatus::Kicked);
+        //         None
+        //     }
+        // }
+        unimplemented!()
     }).collect()
 }
 
 /// Notify the given clients that the tournament has finished. If a winning client fails to accept the message,
 /// then their status is changed to Lost. This change is reflected in the returned client statuses
 /// which is in the same ordering as the given statuses vector.
-fn notify_tournament_finished(clients: Vec<Client>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
+fn notify_tournament_finished(clients: Vec<Box<Client>>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
     for (i, tournament_client) in clients.iter().enumerate() {
         let player_won = statuses[i] == ClientStatus::Won;
         let message = end_message(player_won);
 
-        let send_result = tournament_client.proxy.borrow_mut().send(message.as_bytes());
-        if send_result.is_err() && player_won {
-            statuses[i] = ClientStatus::Lost;
-        }
+        // TODO
+        // let send_result = tournament_client.client.borrow_mut().send(message.as_bytes());
+        // if send_result.is_err() && player_won {
+        //     statuses[i] = ClientStatus::Lost;
+        // }
+        unimplemented!()
     }
 
     statuses
@@ -100,7 +104,7 @@ fn notify_tournament_finished(clients: Vec<Client>, mut statuses: Vec<ClientStat
 /// Performs the recursion for run_tournament, keeping track of the number of winners
 /// of the previous game which is used to end the game early if it is ever equal to the
 /// number of players who won the most recent game.
-fn run_tournament_rec(clients: &[Client], board: Option<Board>,
+fn run_tournament_rec(clients: &[Box<Client>], board: Option<Board>,
     previous_winner_count: Option<usize>, results: &mut BTreeMap<PlayerId, ClientStatus>)
 {
     match next_bracket(clients, previous_winner_count) {
@@ -116,7 +120,7 @@ fn run_tournament_rec(clients: &[Client], board: Option<Board>,
 /// The ordering of players returned does not change - save for the
 /// players that were removed because they lost or cheated.
 fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
-    results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<Client>
+    results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<Box<dyn Client>>
 {
     let mut winners = vec![];
     for group in groups {
@@ -142,7 +146,7 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 ///
 /// It is assumed that the given slice of players is sorted in ascending order of age. If the number
 /// of player initially given is too small to create a game, Bracket::End is returned.
-fn next_bracket(clients: &[Client], previous_player_count: Option<usize>) -> Bracket {
+fn next_bracket(clients: &[Box<dyn Client>], previous_player_count: Option<usize>) -> Bracket {
     if clients.len() < gamestate::MIN_PLAYERS_PER_GAME {
         return Bracket::End;
     }
@@ -170,7 +174,7 @@ fn next_bracket(clients: &[Client], previous_player_count: Option<usize>) -> Bra
 ///
 /// The given list of players is assumed to be sorted in ascending age order. This function will panic if the initial list of players
 /// does not contain enough players to form a single game.
-fn create_player_groupings(clients: &[Client]) -> Vec<PlayerGrouping> {
+fn create_player_groupings(clients: &[Box<dyn Client>]) -> Vec<PlayerGrouping> {
     let mut groups = vec![];
     let mut clients_per_game = gamestate::MAX_PLAYERS_PER_GAME;
     let mut clients = clients.to_vec();
