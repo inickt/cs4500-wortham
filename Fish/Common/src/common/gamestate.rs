@@ -55,7 +55,6 @@ pub type SharedGameState = Rc<RefCell<GameState>>;
 /// - The GameState's current_turn player should never be stuck, unless
 ///   the game is over, i.e. current_player should always have moves.
 ///   Players' turns will be skipped in turn_order if they cannot move anymore.
-/// - A GameState's game is over if there is only one player left.        //TODO: is this still correct?
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GameState {
     pub board: Board,
@@ -289,9 +288,7 @@ impl GameState {
     /// Is this game over? We define a game to be "over" if either
     /// some players have won, or there are no players left in the game.
     pub fn is_game_over(&self) -> bool {
-        let game_over = self.winning_players.is_some() || self.players.is_empty();
-        assert_eq!(self.all_penguins_are_placed() || self.can_any_player_move_penguin(), !game_over);
-        game_over
+        self.winning_players.is_some() || self.players.is_empty()
     }
 
     /// Advance the turn of this game to the next player's turn

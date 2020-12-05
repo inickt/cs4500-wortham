@@ -233,13 +233,16 @@ pub mod tests {
         // looking ahead 1 turn, the move algorithm should pick the move p1(@ TileId 0) -> TileId 2.
         // since all tiles have 3 fish, the algorithm should pick the move with the lowest row,
         // and within that row, the lowest column, since the gain will be 3 for any move.
-        let penguin_to_move = TileId(0);
+        let expected_destination = TileId(2);
+
+        assert!(state.find_penguin(expected_destination).is_none());
 
         let move_ = find_minmax_move(&mut GameTree::new(&state), 1);
         state.move_avatar_for_current_player(move_);
 
-        let new_tile = state.find_penguin(penguin_to_move).and_then(|p| p.tile_id);
-        assert_eq!(new_tile, Some(TileId(2)));
+        // Try to finda  penguin on TileId 2, where we expect the penguin to move to
+        let penguin = state.find_penguin(expected_destination);
+        assert!(penguin.is_some());
     }
 
     /// This test ensures that the algorithm will make winning moves
@@ -271,11 +274,14 @@ pub mod tests {
         // column in the lowest row.
 
         // First move should be (0, 0) to (0, 2)
-        let penguin_to_move = TileId(0);
+        let expected_destination = state.board.get_tile_id(0, 2).unwrap();
+
         let move_ = find_minmax_move(&mut GameTree::new(&state), 20);
         state.move_avatar_for_current_player(move_);
-        let new_tile = state.find_penguin(penguin_to_move).unwrap()
+
+        let new_tile = state.find_penguin(expected_destination).unwrap()
             .tile_id.unwrap();
+
         let new_pos = state.board.get_tile_position(new_tile);
         assert_eq!(new_pos, (0, 2).into());
 
@@ -288,10 +294,13 @@ pub mod tests {
         // This is the "cornerstone" move of the game, in which player 1 guarantees a win
         // We know now that the algorithm is not simply picking the move with the lowest row and column,
         // because that move would be (2, 0) to (2, 2).
-        let penguin_to_move = state.board.get_tile_id(4, 0).unwrap();
+        let expected_destination = state.board.get_tile_id(3, 1).unwrap();
+
         let move_ = find_minmax_move(&mut GameTree::new(&state), 20);
         state.move_avatar_for_current_player(move_);
-        let new_tile = state.find_penguin(penguin_to_move).unwrap().tile_id.unwrap();
+
+        let new_tile = state.find_penguin(expected_destination).unwrap().tile_id.unwrap();
+
         let new_pos = state.board.get_tile_position(new_tile);
         assert_eq!(new_pos, (3, 1).into());
     }
