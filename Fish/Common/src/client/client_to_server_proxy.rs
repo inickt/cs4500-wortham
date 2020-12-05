@@ -4,7 +4,7 @@ use crate::server::message::*;
 
 use std::net::TcpStream;
 use std::time::Duration;
-use std::io::{ Error, Write };
+use std::io::Write;
 
 use serde::Deserialize;
 use serde_json::Deserializer;
@@ -25,7 +25,7 @@ impl ClientToServerProxy {
     }
 
     pub fn tournament_loop(&mut self) -> Option<bool> {
-        self.send(ClientToServerMessage::Name(self.name))?;
+        self.send(ClientToServerMessage::Name(self.name.clone()))?;
         loop {
             match self.receive()? {
                 ServerToClientMessage::Start(_) => {
@@ -37,12 +37,10 @@ impl ClientToServerProxy {
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                     return Some(won)
                 },
-                ServerToClientMessage::PlayingAs((color,)) => {
-                    // TODO shoot this is where this falls through the cracks. what to do about initialize?
+                ServerToClientMessage::PlayingAs(_) => {
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
-                ServerToClientMessage::PlayingWith((other_colors,)) => {
-                    // TODO shoot this is where this falls through the cracks. what to do about initialize?
+                ServerToClientMessage::PlayingWith(_) => {
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
                 ServerToClientMessage::Setup((json_gamestate,)) => {
@@ -51,7 +49,7 @@ impl ClientToServerProxy {
                 },
                 ServerToClientMessage::TakeTurn(json_gamestate, _) => {
                     // TODO pass history after converting if we want to keep it
-                    let move_ = self.client.get_move(&json_gamestate.to_common_game_state(), vec![])?;
+                    let move_ = self.client.get_move(&json_gamestate.to_common_game_state(), &[])?;
                     self.send(ClientToServerMessage::Action(move_to_json_action(move_)))?;
                 },
             }

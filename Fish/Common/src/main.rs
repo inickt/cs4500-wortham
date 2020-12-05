@@ -3,17 +3,17 @@ mod common;
 mod server;
 
 use common::board::Board;
-use client::player::InHousePlayer;
+use server::ai_client::AIClient;
 use server::referee::run_game;
-use server::serverclient::ClientProxy;
+use server::client::Client;
 
 use std::rc::Rc;
 use std::cell::RefCell;
 
 fn main() {
     let players = vec![
-        ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-        ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+        Box::new(AIClient::with_zigzag_minmax_strategy()) as Box<dyn Client>,
+        Box::new(AIClient::with_zigzag_minmax_strategy()),
     ];
 
     let board = Board::with_no_holes(5, 3, 1);

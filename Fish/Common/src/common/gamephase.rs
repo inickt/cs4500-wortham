@@ -140,7 +140,7 @@ impl GamePhase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::strategy::tests::take_zigzag_placement;
+    use crate::server::strategy::tests::take_zigzag_placement;
 
     fn place_penguins(state: &mut GameState) {
         while !state.all_penguins_are_placed() {

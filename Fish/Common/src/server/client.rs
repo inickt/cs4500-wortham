@@ -20,6 +20,7 @@ pub trait Client {
 #[derive(Clone)]
 pub struct ClientWithId {
     pub id: PlayerId,
+    pub kicked: bool,
 
     /// This is the shared, mutable reference to the Client shared
     /// between the tournament manager and the referee components.
@@ -27,10 +28,37 @@ pub struct ClientWithId {
 }
 
 impl ClientWithId {
-    pub fn new<C: 'static + Client>(id: usize, client: C) -> ClientWithId {
+    pub fn new(id: usize, client: Box<dyn Client>) -> ClientWithId {
         ClientWithId {
             id: PlayerId(id),
+            kicked: false,
             client: Rc::new(RefCell::new(client)),
         }
+    }
+
+    pub fn borrow_mut(&self) -> std::cell::RefMut<'_, dyn Client + 'static> {
+        self.client.borrow_mut()
+    }
+}
+
+impl Client for Box<dyn Client> {
+    fn tournament_starting(&mut self) -> Option<()> {
+        self.as_mut().tournament_starting()
+    }
+
+    fn tournament_ending(&mut self, won: bool) -> Option<()> {
+        self.as_mut().tournament_ending(won)
+    }
+
+    fn initialize_game(&mut self, initial_gamestate: &GameState, player_color: PlayerColor) -> Option<()> {
+        self.as_mut().initialize_game(initial_gamestate, player_color)
+    }
+
+    fn get_placement(&mut self, gamestate: &GameState) -> Option<Placement> {
+        self.as_mut().get_placement(gamestate)
+    }
+
+    fn get_move(&mut self, gamestate: &GameState, previous: &[PlayerMove]) -> Option<Move> {
+        self.as_mut().get_move(gamestate, previous)
     }
 }

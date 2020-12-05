@@ -178,7 +178,7 @@ impl std::fmt::Debug for LazyGameTree {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::strategy::tests::take_zigzag_placement;
+    use crate::server::strategy::tests::take_zigzag_placement;
 
     // Starts a game with a 3 row, 5 column board and all penguins placed.
     fn start_game() -> GameTree {

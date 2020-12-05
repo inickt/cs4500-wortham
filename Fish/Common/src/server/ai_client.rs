@@ -5,37 +5,25 @@ use crate::common::game_tree::GameTree;
 use crate::common::player::PlayerColor;
 use crate::common::action::{ Placement, Move, PlayerMove};
 use crate::server::strategy::{ Strategy, ZigZagMinMaxStrategy };
-use crate::common::gamephase::GamePhase;
 use crate::server::client::Client;
 
 
 /// Represents the in-house AI player for the Fish game.
-/// This player holds their own GamePhase and is responsible for using their strategy
+/// This player is responsible for using their strategy
 /// to determine what action to take on their turn.
 pub struct AIClient {
-    /// Contains the current phase of the game (starting, placing, moving, done),
-    /// which also contains either the current GameState or GameTree depending on
-    /// if we are in the Placing or Moving phase. This is the player's concept of
-    /// the current game phase, which it creates using only the serialized GameStates
-    /// sent by the server so mutating this GamePhase does not affect the server.
-    phase: GamePhase,
-
-    /// Used to determine which moves or placements the player should take.
     strategy: Box<dyn Strategy>,
 }
 
 impl AIClient {
     /// Creates a new AI player using the given streams.
     pub fn new(strategy: Box<dyn Strategy>) -> AIClient {
-        AIClient { strategy, phase: GamePhase::Starting }
+        AIClient { strategy }
     }
 
     /// Helper to create a player with the zigzag minmax strategy.
     pub fn with_zigzag_minmax_strategy() -> AIClient {
-        AIClient {
-            strategy: Box::new(ZigZagMinMaxStrategy),
-            phase: GamePhase::Starting
-        }
+        AIClient { strategy: Box::new(ZigZagMinMaxStrategy) }
     }
 }
 
@@ -44,11 +32,11 @@ impl Client for AIClient {
         Some(())
     }
 
-    fn tournament_ending(&mut self, won: bool) -> Option<()> {
+    fn tournament_ending(&mut self, _won: bool) -> Option<()> {
         Some(())
     }
 
-    fn initialize_game(&mut self, initial_gamestate: &GameState, player_color: PlayerColor) -> Option<()> {
+    fn initialize_game(&mut self, _initial_gamestate: &GameState, _player_color: PlayerColor) -> Option<()> {
         Some(())
     }
 
@@ -56,7 +44,7 @@ impl Client for AIClient {
         Some(self.strategy.find_placement(gamestate))
     }
 
-    fn get_move(&mut self, gamestate: &GameState, previous: &[PlayerMove]) -> Option<Move> {
+    fn get_move(&mut self, gamestate: &GameState, _previous: &[PlayerMove]) -> Option<Move> {
         let mut gametree = GameTree::new(gamestate);
         Some(self.strategy.find_move(&mut gametree))
     }
@@ -69,22 +57,19 @@ mod tests {
     use crate::common::tile::TileId;
     use crate::common::action::Placement;
     use crate::common::gamestate::GameState;
-    use crate::client::strategy::{ tests::take_zigzag_placement, ZigZagMinMaxStrategy };
+    use crate::server::strategy::{ tests::take_zigzag_placement, ZigZagMinMaxStrategy };
 
     #[test]
     fn test_take_turn_placement() {
-        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
+        let mut player = AIClient::new(Box::new(ZigZagMinMaxStrategy));
 
         let state = GameState::with_default_board(3, 5, 2);
-        let message = setup_message(&state);
-        player.receive_message(message.as_bytes());
-
-        assert_eq!(player.take_turn(), Action::PlacePenguin(Placement { tile_id: TileId(0) }));
+        assert_eq!(player.get_placement(&state), Some(Placement { tile_id: TileId(0) }));
     }
 
     #[test]
     fn test_take_turn_move() {
-        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
+        let mut player = AIClient::new(Box::new(ZigZagMinMaxStrategy));
 
         let mut state = GameState::with_default_board(3, 5, 2);
 
@@ -92,21 +77,7 @@ mod tests {
             take_zigzag_placement(&mut state);
         }
 
-        let message = take_turn_message(&state, &[]);
-        player.receive_message(message.as_bytes());
-
-        let action = player.take_turn();
-        assert_eq!(action.as_move().unwrap().to, TileId(2));
-    }
-
-    #[test]
-    fn test_receive_setup_message() {
-        let mut player = InHousePlayer::new(Box::new(ZigZagMinMaxStrategy));
-        let state = GameState::with_default_board(3, 5, 2);
-
-        let message = setup_message(&state);
-        player.receive_message(message.as_bytes());
-
-        assert_eq!(player.phase.take_state(), state);
+        let action = player.get_move(&state, &[]);
+        assert_eq!(action.unwrap().to, TileId(2));
     }
 }

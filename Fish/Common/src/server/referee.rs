@@ -9,7 +9,6 @@ use crate::common::gamephase::GamePhase;
 use crate::common::game_tree::GameTree;
 use crate::common::player::{ PlayerId, PlayerColor };
 use crate::server::client::{ Client, ClientWithId };
-use crate::server::message::*;
 
 /// A referee is in charge of starting, running, and managing a game of fish.
 /// This entails looping until the game is over and on each turn sending the
@@ -68,9 +67,9 @@ pub enum ClientStatus {
 /// the initial game state before the first turn.
 /// 
 /// Returns the Win,Loss,Kicked status of each player and the final GameState
-pub fn run_game(clients: Vec<Client>, board: Option<Board>) -> GameResult {
+pub fn run_game(clients: Vec<Box<dyn Client>>, board: Option<Board>) -> GameResult {
     let clients: Vec<_> = clients.into_iter().enumerate()
-        .map(|(id, player)| Client::new(id, player)).collect();
+        .map(|(id, player)| ClientWithId::new(id, player)).collect();
     run_game_shared(&clients, board)
 }
 
@@ -107,12 +106,12 @@ impl Referee {
         Referee { clients, phase, move_history: vec![] }
     }
 
-    fn get_client_player_color(&self, client: &Client) -> PlayerColor {
+    fn get_client_player_color(&self, client: &ClientWithId) -> PlayerColor {
         let state = self.phase.get_state();
         state.players.get(&client.id).unwrap().color
     }
 
-    fn current_client(&self) -> &Client {
+    fn current_client(&self) -> &ClientWithId {
         let current_player_id = self.phase.current_turn();
         self.clients.iter().find(|client| client.id == current_player_id).unwrap()
     }
@@ -172,7 +171,7 @@ impl Referee {
         let Referee { clients, phase, .. } = self;
 
         let final_statuses = clients.into_iter().map(|client| {
-            if client.proxy.borrow().is_kicked() {
+            if client.kicked {
                 ClientStatus::Kicked
             } else if phase.get_state().winning_players.as_ref()
                     .map_or(false, |winning_players| winning_players.contains(&client.id)) {
@@ -212,7 +211,7 @@ impl Referee {
     /// 
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_placement(&mut self) -> Option<()> {
-        let placement = self.current_client().get_placement(self.phase.get_state())?;
+        let placement = self.current_client().borrow_mut().get_placement(self.phase.get_state())?;
         match &mut self.phase {
             GamePhase::PlacingPenguins(gamestate) => gamestate.place_avatar_for_current_player(placement),
             _ => unreachable!("do_player_placement called outside of the PlacingPenguins phase"),
@@ -226,7 +225,7 @@ impl Referee {
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
         let move_history = self.get_move_history_for_current_client();
-        let move_ = self.current_client().get_move(self.phase.get_state(), move_history)?;
+        let move_ = self.current_client().borrow_mut().get_move(self.phase.get_state(), &move_history)?;
         let current_player_color = self.get_client_player_color(self.current_client());
 
         match &mut self.phase {
@@ -274,7 +273,7 @@ impl Referee {
         self.move_history.clear();
 
         // The game ends early if all clients are kicked
-        if self.clients.iter().all(|client| client.proxy.borrow().is_kicked()) {
+        if self.clients.iter().all(|client| client.kicked) {
             self.phase = GamePhase::Done(self.phase.get_state().clone());
         }
     }
@@ -314,8 +313,8 @@ impl Referee {
 mod tests {
     use super::*;
     use super::ClientStatus::*;
-    use crate::client::player::InHousePlayer;
-    use crate::client::strategy::Strategy;
+    use crate::server::strategy::Strategy;
+    use crate::server::ai_client::AIClient;
     use crate::common::action::{ Move, Placement };
     use crate::common::tile::TileId;
 
@@ -337,9 +336,9 @@ mod tests {
     #[test]
     fn run_game_normal() {
         // set up players
-        let players = vec![
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+        let players: Vec<Box<dyn Client>> = vec![
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
         ];
 
         let board = Board::with_no_holes(3, 5, 1);
@@ -353,9 +352,9 @@ mod tests {
     #[test]
     fn run_game_initially_over() {
         // set up players
-        let players = vec![
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+        let players: Vec<Box<dyn Client>> = vec![
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
         ];
 
         let board = Board::with_no_holes(2, 4, 1);
@@ -368,9 +367,9 @@ mod tests {
     #[test]
     fn run_game_both_players_win() {
         // set up players
-        let players = vec![
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+        let players: Vec<Box<dyn Client>> = vec![
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
         ];
 
         let board = Board::with_no_holes(4, 4, 1);
@@ -381,13 +380,11 @@ mod tests {
 
     /// Runs a game with one cheating player who should get kicked from the game,
     /// and one who plays the normal minmax strategy and should thus win.
-    /// It runs the same game twice, each time with cheaters in different positions
-    /// in the turn order.
     #[test]
     fn run_game_cheater() {
-        let players_cheater_second = vec![
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-            ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+        let players_cheater_second: Vec<Box<dyn Client>> = vec![
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
+            Box::new(AIClient::new(Box::new(CheatingStrategy))),
         ];
         
         let result = run_game(players_cheater_second, None);
@@ -396,10 +393,10 @@ mod tests {
 
     #[test]
     fn run_game_two_cheaters() {
-        let players_cheater_first = vec![
-            ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
-            ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+        let players_cheater_first: Vec<Box<dyn Client>> = vec![
+            Box::new(AIClient::new(Box::new(CheatingStrategy))),
+            Box::new(AIClient::with_zigzag_minmax_strategy()),
+            Box::new(AIClient::new(Box::new(CheatingStrategy))),
         ];
         let result = run_game(players_cheater_first, None);
         assert_eq!(result.final_statuses, vec![Kicked, Won, Kicked]);
@@ -407,10 +404,10 @@ mod tests {
 
     #[test]
     fn run_game_all_cheating_players() {
-        let players_cheater_first = vec![
-            ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
-            ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
-            ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy))),
+        let players_cheater_first: Vec<Box<dyn Client>> = vec![
+            Box::new(AIClient::new(Box::new(CheatingStrategy))),
+            Box::new(AIClient::new(Box::new(CheatingStrategy))),
+            Box::new(AIClient::new(Box::new(CheatingStrategy))),
         ];
         let result = run_game(players_cheater_first, None);
         assert_eq!(result.final_statuses, vec![Kicked, Kicked, Kicked]);

@@ -68,34 +68,26 @@ pub fn run_tournament(clients: Vec<Box<dyn Client>>, board: Option<Board>) -> Ve
 /// message are returned in the same order.
 fn notify_tournament_started(clients: &[ClientWithId], results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<ClientWithId> {
     clients.iter().filter_map(|client| {
-        let message = start_message();
-
-        // TODO
-        // match client.client.borrow_mut().send(message.as_bytes()) {
-        //     Ok(_) => Some(clientid.clone()),
-        //     Err(_) => {
-        //         results.insert(clientid.id, ClientStatus::Kicked);
-        //         None
-        //     }
-        // }
-        unimplemented!()
+        match client.borrow_mut().tournament_starting() {
+            Some(()) => Some(client.clone()),
+            None => {
+                results.insert(client.id, ClientStatus::Kicked);
+                None
+            }
+        }
     }).collect()
 }
 
 /// Notify the given clients that the tournament has finished. If a winning client fails to accept the message,
 /// then their status is changed to Lost. This change is reflected in the returned client statuses
 /// which is in the same ordering as the given statuses vector.
-fn notify_tournament_finished(clients: Vec<Box<Client>>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
-    for (i, tournament_client) in clients.iter().enumerate() {
+fn notify_tournament_finished(clients: Vec<ClientWithId>, mut statuses: Vec<ClientStatus>) -> Vec<ClientStatus> {
+    for (i, client) in clients.iter().enumerate() {
         let player_won = statuses[i] == ClientStatus::Won;
-        let message = end_message(player_won);
 
-        // TODO
-        // let send_result = tournament_client.client.borrow_mut().send(message.as_bytes());
-        // if send_result.is_err() && player_won {
-        //     statuses[i] = ClientStatus::Lost;
-        // }
-        unimplemented!()
+        if client.borrow_mut().tournament_ending(player_won).is_none() && player_won {
+            statuses[i] = ClientStatus::Lost;
+        }
     }
 
     statuses
@@ -104,7 +96,7 @@ fn notify_tournament_finished(clients: Vec<Box<Client>>, mut statuses: Vec<Clien
 /// Performs the recursion for run_tournament, keeping track of the number of winners
 /// of the previous game which is used to end the game early if it is ever equal to the
 /// number of players who won the most recent game.
-fn run_tournament_rec(clients: &[Box<Client>], board: Option<Board>,
+fn run_tournament_rec(clients: &[ClientWithId], board: Option<Board>,
     previous_winner_count: Option<usize>, results: &mut BTreeMap<PlayerId, ClientStatus>)
 {
     match next_bracket(clients, previous_winner_count) {
@@ -120,7 +112,7 @@ fn run_tournament_rec(clients: &[Box<Client>], board: Option<Board>,
 /// The ordering of players returned does not change - save for the
 /// players that were removed because they lost or cheated.
 fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
-    results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<Box<dyn Client>>
+    results: &mut BTreeMap<PlayerId, ClientStatus>) -> Vec<ClientWithId>
 {
     let mut winners = vec![];
     for group in groups {
@@ -146,7 +138,7 @@ fn run_round(groups: Vec<PlayerGrouping>, board: Option<Board>,
 ///
 /// It is assumed that the given slice of players is sorted in ascending order of age. If the number
 /// of player initially given is too small to create a game, Bracket::End is returned.
-fn next_bracket(clients: &[Box<dyn Client>], previous_player_count: Option<usize>) -> Bracket {
+fn next_bracket(clients: &[ClientWithId], previous_player_count: Option<usize>) -> Bracket {
     if clients.len() < gamestate::MIN_PLAYERS_PER_GAME {
         return Bracket::End;
     }
@@ -174,7 +166,7 @@ fn next_bracket(clients: &[Box<dyn Client>], previous_player_count: Option<usize
 ///
 /// The given list of players is assumed to be sorted in ascending age order. This function will panic if the initial list of players
 /// does not contain enough players to form a single game.
-fn create_player_groupings(clients: &[Box<dyn Client>]) -> Vec<PlayerGrouping> {
+fn create_player_groupings(clients: &[ClientWithId]) -> Vec<PlayerGrouping> {
     let mut groups = vec![];
     let mut clients_per_game = gamestate::MAX_PLAYERS_PER_GAME;
     let mut clients = clients.to_vec();
@@ -205,17 +197,14 @@ fn create_player_groupings(clients: &[Box<dyn Client>]) -> Vec<PlayerGrouping> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::player::InHousePlayer;
     use crate::common::gamestate::GameState;
     use crate::common::tile::TileId;
     use crate::common::boardposn::BoardPosn;
     use crate::common::game_tree::GameTree;
     use crate::common::action::{Placement, Move};
-    use crate::client::strategy::Strategy;
-    use crate::client::strategy::find_minmax_move;
-    use crate::client::strategy::find_zigzag_placement;
-    use crate::server::connection::PlayerConnection;
+    use crate::server::strategy::{ Strategy, find_minmax_move, find_zigzag_placement };
     use crate::server::referee::ClientStatus::*;
+    use crate::server::{ ai_client, remote_client };
 
     use std::net::{ TcpListener, TcpStream, Shutdown };
     use std::time::Duration;
@@ -247,19 +236,19 @@ mod tests {
     }
 
     /// Create a player that uses a SimpleStrategy
-    fn make_simple_strategy_player() -> ClientProxy {
-        ClientProxy::InHouseAI(InHousePlayer::new(Box::new(SimpleStrategy)))
+    fn make_simple_strategy_player() -> Box<dyn Client> {
+        Box::new(ai_client::AIClient::new(Box::new(SimpleStrategy)))
     }
 
     /// Creating a player that uses a cheating strategy
-    fn make_cheating_player() -> ClientProxy {
-        ClientProxy::InHouseAI(InHousePlayer::new(Box::new(CheatingStrategy)))
+    fn make_cheating_player() -> Box<dyn Client> {
+        Box::new(ai_client::AIClient::new(Box::new(CheatingStrategy)))
     }
 
-    fn make_player_fails_to_accept(port: usize) -> ClientProxy {
+    fn make_player_fails_to_accept(port: usize) -> Box<dyn Client> {
         let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect stream");
         stream.shutdown(Shutdown::Both).expect("Failed to shutdown TcpStream");
-        ClientProxy::Remote(PlayerConnection::new_with_timeout(stream, Duration::from_millis(100)))
+        Box::new(remote_client::RemoteClient::new(stream, Duration::from_millis(100)))
     }
 
 
@@ -312,8 +301,8 @@ mod tests {
     #[test]
     fn test_run_round() {
         let player_grouping = vec![
-            util::make_n(4, |id| Client::new(id, make_simple_strategy_player())),
-            util::make_n(4, |id| Client::new(id + 4, make_simple_strategy_player())),
+            util::make_n(4, |id| ClientWithId::new(id, make_simple_strategy_player())),
+            util::make_n(4, |id| ClientWithId::new(id + 4, make_simple_strategy_player())),
         ];
 
         let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
@@ -335,10 +324,10 @@ mod tests {
         let _listener = TcpListener::bind(format!("127.0.0.1:{}", 8081)).expect("Could not create listener");
 
         let clients = vec![
-            Client::new(0, make_simple_strategy_player()), // player who will accept message
-            Client::new(1, make_player_fails_to_accept(8081)), // player that will fail to accept message
-            Client::new(2, make_simple_strategy_player()), // player that accepts message
-            Client::new(3, make_cheating_player()), // player that accepts message
+            ClientWithId::new(0, make_simple_strategy_player()), // player who will accept message
+            ClientWithId::new(1, make_player_fails_to_accept(8081)), // player that will fail to accept message
+            ClientWithId::new(2, make_simple_strategy_player()), // player that accepts message
+            ClientWithId::new(3, make_cheating_player()), // player that accepts message
         ];
 
         // initial statuses reported by tournament manager
@@ -362,10 +351,10 @@ mod tests {
         let _listener = TcpListener::bind(format!("127.0.0.1:{}", 8080)).expect("Could not create listener");
 
         let clients = vec![
-            Client::new(0, make_simple_strategy_player()), // player who will win and accept message
-            Client::new(1, make_player_fails_to_accept(8080)), // player that will win but fail to accept message
-            Client::new(2, make_simple_strategy_player()), // player that loses and accepts message
-            Client::new(3, make_cheating_player()), // player that is kicked (does not do anything with message)
+            ClientWithId::new(0, make_simple_strategy_player()), // player who will win and accept message
+            ClientWithId::new(1, make_player_fails_to_accept(8080)), // player that will win but fail to accept message
+            ClientWithId::new(2, make_simple_strategy_player()), // player that loses and accepts message
+            ClientWithId::new(3, make_cheating_player()), // player that is kicked (does not do anything with message)
         ];
 
         // initial statuses reported by tournament manager
@@ -397,7 +386,7 @@ mod tests {
     /// Player 2 will be the winner.
     #[test]
     fn test_run_bad_round() {
-        let players: Vec<ClientProxy> = vec![
+        let players = vec![
             make_cheating_player(),
             make_simple_strategy_player(),
             make_simple_strategy_player(),
@@ -424,7 +413,7 @@ mod tests {
     fn test_tournament_ends_when_two_rounds_in_a_row_produce_same_winners() {
         // set up 8 players
         let players = util::make_n(8, |_|
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy())
+            Box::new(ai_client::AIClient::with_zigzag_minmax_strategy()) as Box<dyn Client>
         );
 
         // Only 8 spaces to place penguins with a total of 8 penguins in the game.
@@ -437,8 +426,8 @@ mod tests {
     #[test]
     fn test_tournament_ends_when_too_few_players_for_single_game() {
         // The only case where there are too few players (except for when there are none) is when there is only 1 player.
-        let players = vec![
-            ClientProxy::InHouseAI(InHousePlayer::with_zigzag_minmax_strategy()),
+        let players: Vec<Box<dyn Client>> = vec![
+            Box::new(ai_client::AIClient::with_zigzag_minmax_strategy())
         ];
 
         let board = Board::with_no_holes(2, 4, 1);
@@ -480,7 +469,7 @@ mod tests {
     #[test]
     fn test_allocate_backtracking() {
         // set up players
-        let clients: Vec<_> = util::make_n(5, |id| Client::new(id, make_simple_strategy_player()));
+        let clients: Vec<_> = util::make_n(5, |id| ClientWithId::new(id, make_simple_strategy_player()));
 
         match next_bracket(&clients, None) {
             Bracket::Round { games } => {
@@ -496,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_allocate_ends_when_too_few_players_for_single_game() {
-        let clients = vec![Client::new(0, make_simple_strategy_player())];
+        let clients = vec![ClientWithId::new(0, make_simple_strategy_player())];
 
         // next_bracket of 1 player
         match next_bracket(&clients, None) {
@@ -514,9 +503,9 @@ mod tests {
     #[test]
     fn test_allocate_ends_when_enough_players_for_one_last_game() {
         let clients = vec![
-            Client::new(0, make_simple_strategy_player()),
-            Client::new(1, make_simple_strategy_player()),
-            Client::new(2, make_simple_strategy_player()),
+            ClientWithId::new(0, make_simple_strategy_player()),
+            ClientWithId::new(1, make_simple_strategy_player()),
+            ClientWithId::new(2, make_simple_strategy_player()),
         ];
 
         // First game with 3 players
