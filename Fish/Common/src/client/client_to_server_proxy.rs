@@ -26,12 +26,12 @@ impl ClientToServerProxy {
 
     // TODO: Add tests
     pub fn tournament_loop(&mut self) -> Option<bool> {
-        self.send(ClientToServerMessage::Name(self.name.clone()))?;
+        self.send_name()?;
         loop {
             match self.receive()? {
                 ServerToClientMessage::Start(_) => {
                     self.client.tournament_starting()?;
-                    self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
+                    dbg!(self.send(ClientToServerMessage::Void(JSONVoid::Void)))?;
                 },
                 ServerToClientMessage::End((won,)) => {
                     self.client.tournament_ending(won)?;
@@ -45,16 +45,25 @@ impl ClientToServerProxy {
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
                 ServerToClientMessage::Setup((json_gamestate,)) => {
-                    let placement = self.client.get_placement(&json_gamestate.to_common_game_state())?;
-                    self.send(ClientToServerMessage::Position(placement_to_json_position(placement)))?;
+                    let gamestate = json_gamestate.to_common_game_state();
+                    let placement = self.client.get_placement(&gamestate)?;
+                    let json_position = placement_to_json_position(&gamestate.board, placement);
+                    self.send(ClientToServerMessage::Position(json_position))?;
                 },
                 ServerToClientMessage::TakeTurn(json_gamestate, _) => {
                     // TODO pass history after converting if we want to keep it
-                    let move_ = self.client.get_move(&json_gamestate.to_common_game_state(), &[])?;
-                    self.send(ClientToServerMessage::Action(move_to_json_action(move_)))?;
+                    let gamestate = json_gamestate.to_common_game_state();
+                    let move_ = self.client.get_move(&gamestate, &[])?;
+                    self.send(ClientToServerMessage::Action(move_to_json_action(&gamestate.board, move_)))?;
                 },
             }
         }
+    }
+
+    fn send_name(&mut self) -> Option<()> {
+        let json_name = serde_json::to_string(&self.name).ok()?;
+        self.stream.write(json_name.as_bytes()).ok()?;
+        Some(())
     }
 
     fn receive(&mut self) -> Option<ServerToClientMessage> {

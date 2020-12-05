@@ -117,50 +117,22 @@ impl Referee {
     }
 
     fn initialize_clients(&mut self) {
-        // TODO send initial game state
+        let mut clients_to_kick = vec![];
+
+        let state = self.phase.get_state();
+        for client in self.clients.iter() {
+            let color = self.get_client_player_color(client);
+            let result = client.borrow_mut().initialize_game(state, color);
+            if result.is_none() {
+                clients_to_kick.push(client.id);
+            }
+        }
+
+        for id in clients_to_kick {
+            println!("Kicking {} in initialize_client", id.0);
+            self.kick_player(id);
+        }
     }
-
-    /// Sends the "playing-as" message to all clients.
-    /// This will kick any clients that fail to accept the message.
-    // fn send_playing_as_messages(&mut self) {
-    //     let mut clients_to_kick = vec![];
-        
-    //     for client in self.clients.iter() {
-    //         let message = playing_as_message(self.get_client_player_color(client));
-
-    //         if client.send(message.as_bytes()).is_err() {
-    //             clients_to_kick.push(client.id);
-    //         }
-    //     }
-
-    //     for id in clients_to_kick {
-    //         self.kick_player(id);
-    //     }
-    // }
-
-    /// Sends the "playing-with" message to all clients.
-    /// This will kick any clients that fail to accept the message.
-    // fn send_playing_with_messages(&mut self) {
-    //     let state = self.phase.get_state();
-    //     let mut clients_to_kick = vec![];
-
-    //     for client in self.clients.iter() {
-    //         let current_player_color = self.get_client_player_color(client);
-    //         let other_colors = state.players.iter()
-    //             .map(|player| player.1.color)
-    //             .filter(|color| *color != current_player_color)
-    //             .collect::<Vec<PlayerColor>>();
-
-    //         let message = playing_with_message(&other_colors);
-    //         if client.send(message.as_bytes()).is_err() {
-    //             clients_to_kick.push(client.id);
-    //         }
-    //     }
-
-    //     for id in clients_to_kick {
-    //         self.kick_player(id);
-    //     }
-    // }
 
     /// Returns the winners, losers, and kicked players of the game, along
     /// with the final game state of the game.
@@ -199,6 +171,7 @@ impl Referee {
         };
 
         if success.is_none() {
+            println!("Kicking current player in do_player_turn");
             self.kick_current_player();
         }
 

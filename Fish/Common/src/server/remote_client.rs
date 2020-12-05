@@ -52,7 +52,7 @@ impl RemoteClient {
 
 impl Client for RemoteClient {
     fn tournament_starting(&mut self) -> Option<()> {
-        match self.call(start_message())? {
+        match dbg!(self.call(start_message()))? {
             ClientToServerMessage::Void(_) => Some(()),
             _ => None
         }
@@ -63,11 +63,6 @@ impl Client for RemoteClient {
             ClientToServerMessage::Void(_) => Some(()),
             _ => None
         }
-        // TODO should we shut down the stream here? should also shutdown when players are kicked?
-        // from the docs:
-        // > The connection will be closed when the value is dropped. The reading and writing 
-        // > portions of the connection can also be shut down individually with the shutdown method.
-        // so maybe not as long as all refs are dropped?
     }
 
     fn initialize_game(&mut self, initial_gamestate: &GameState, player_color: PlayerColor) -> Option<()> {

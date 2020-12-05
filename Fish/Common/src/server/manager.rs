@@ -71,6 +71,7 @@ fn notify_tournament_started(clients: &[ClientWithId], results: &mut BTreeMap<Pl
         match client.borrow_mut().tournament_starting() {
             Some(()) => Some(client.clone()),
             None => {
+                println!("Kicking {} in tournament_start", client.id.0);
                 results.insert(client.id, ClientStatus::Kicked);
                 None
             }

@@ -26,15 +26,18 @@ pub struct JSONPlayer {
 /// Json pair of [ board_row, board_column ]
 type JSONPosition = [u32; 2];
 
-pub fn placement_to_json_position(placement: Placement) -> JSONPosition {
-    unimplemented!()
+pub fn placement_to_json_position(board: &Board, placement: Placement) -> JSONPosition {
+    let board_position = board.get_tile_position(placement.tile_id);
+    [board_position.y, board_position.x]
 }
 
 /// Json pair of [ from-pos, to-pos ]
 type JSONAction = [JSONPosition; 2];
 
-pub fn move_to_json_action(move_: Move) -> JSONAction {
-    unimplemented!()
+pub fn move_to_json_action(board: &Board, move_: Move) -> JSONAction {
+    let from_position = board.get_tile_position(move_.from);
+    let to_position = board.get_tile_position(move_.to);
+    [ [from_position.y, from_position.x], [to_position.y, to_position.x] ]
 }
 
 /// All the types of client-server messages.
@@ -57,16 +60,15 @@ pub enum ServerToClientMessage {
     End((bool,)),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub enum JSONVoid {
     Void
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum ClientToServerMessage {
-    Name(String),
     Void(JSONVoid),
     Position(JSONPosition),
     Action(JSONAction), 
