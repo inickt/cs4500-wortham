@@ -259,10 +259,10 @@ impl Referee {
     /// they were kicked.
     fn kick_player(&mut self, player: PlayerId) {
         self.phase.get_state_mut().remove_player(player);
-        // TODO: need to fix kicking
-        // self.clients.iter_mut()
-        //     .find(|client| client.id == player)
-        //     .map(|client| *client.proxy.borrow_mut() = ClientProxy::Kicked);
+
+        self.clients.iter_mut()
+            .find(|client| client.id == player)
+            .map(|client| client.kicked = true);
 
         // Must manually update after kicking a player to update the tree of valid moves in the game
         // tree, if needed

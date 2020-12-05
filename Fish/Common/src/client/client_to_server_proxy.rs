@@ -24,6 +24,7 @@ impl ClientToServerProxy {
         Some(ClientToServerProxy { name, client, stream, timeout })
     }
 
+    // TODO: Add tests
     pub fn tournament_loop(&mut self) -> Option<bool> {
         self.send(ClientToServerMessage::Name(self.name.clone()))?;
         loop {
