@@ -33,7 +33,7 @@ impl Move {
 }
 
 /// Represents a move that has been  made by a given player
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct PlayerMove {
     pub mover: PlayerColor,
     pub from: BoardPosn,

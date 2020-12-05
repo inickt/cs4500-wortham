@@ -8,7 +8,7 @@ use crate::common::util;
 use serde::{ Serialize, Deserialize };
 use serde_json::json;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct JSONGameState {
     pub players: Vec<JSONPlayer>,
     pub board: JSONBoard,
@@ -16,7 +16,7 @@ pub struct JSONGameState {
 
 type JSONBoard = Vec<Vec<u32>>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct JSONPlayer {
     pub color: PlayerColor,
     pub score: usize, // do we need arbitrary precision? 4 says "Natural"
@@ -48,7 +48,7 @@ pub fn move_to_json_action(board: &Board, move_: Move) -> JSONAction {
 ///
 /// Most of these variants contain a single element tuple (T,)
 /// so that deserializing them from a 1-element array works.
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(tag = "name", content = "arguments")]
 #[serde(rename_all = "kebab-case")]
 pub enum ServerToClientMessage {
@@ -138,9 +138,15 @@ fn serialize_player(player: &Player, board: &Board) -> JSONPlayer {
 }
 
 fn serialize_players(gamestate: &GameState) -> Vec<JSONPlayer> {
-    util::map_slice(&gamestate.turn_order, |id| {
+    let mut json_players = util::map_slice(&gamestate.turn_order, |id| {
         serialize_player(&gamestate.players[id], &gamestate.board)
-    })
+    });
+    // current player should be first
+    let current_turn_index = gamestate.players.iter().position(|player| {
+        *player.0 == gamestate.current_turn
+    }).unwrap();
+    json_players.rotate_left(current_turn_index);
+    json_players
 }
 
 pub fn serialize_gamestate(gamestate: &GameState) -> JSONGameState {

@@ -171,7 +171,7 @@ impl Referee {
         };
 
         if success.is_none() {
-            println!("Kicking current player in do_player_turn");
+            println!("Kicking current player in do_player_turn in phase {:?}", self.phase);
             self.kick_current_player();
         }
 
@@ -198,15 +198,15 @@ impl Referee {
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
         let move_history = self.get_move_history_for_current_client();
-        let move_ = self.current_client().borrow_mut().get_move(self.phase.get_state(), &move_history)?;
+        let move_ = dbg!(self.current_client().borrow_mut().get_move(self.phase.get_state(), &move_history))?;
         let current_player_color = self.get_client_player_color(self.current_client());
 
         match &mut self.phase {
             GamePhase::MovingPenguins(gametree) => {
                 let starting_state = gametree.get_state();
-                let player_move = PlayerMove::new(current_player_color, move_, starting_state)?;
+                let player_move = dbg!(PlayerMove::new(current_player_color, move_, starting_state))?;
 
-                self.phase.try_do_move(move_)?;
+                dbg!(self.phase.try_do_move(move_))?;
                 self.move_history.push(player_move);
                 Some(())
             },

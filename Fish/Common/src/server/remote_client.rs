@@ -52,7 +52,7 @@ impl RemoteClient {
 
 impl Client for RemoteClient {
     fn tournament_starting(&mut self) -> Option<()> {
-        match dbg!(self.call(start_message()))? {
+        match self.call(start_message())? {
             ClientToServerMessage::Void(_) => Some(()),
             _ => None
         }
@@ -91,7 +91,7 @@ impl Client for RemoteClient {
     }
 
     fn get_move(&mut self, gamestate: &GameState, previous: &[PlayerMove]) -> Option<Move> {
-        match self.call(take_turn_message(gamestate, previous))? {
+        match dbg!(self.call(take_turn_message(gamestate, previous)))? {
             ClientToServerMessage::Action(json_move) => {
                 let from_tile_id = gamestate.board.get_tile_id(json_move[0][1], json_move[0][0])?;
                 let to_tile_id = gamestate.board.get_tile_id(json_move[1][1], json_move[1][0])?;

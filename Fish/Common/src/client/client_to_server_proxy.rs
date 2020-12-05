@@ -31,7 +31,7 @@ impl ClientToServerProxy {
             match self.receive()? {
                 ServerToClientMessage::Start(_) => {
                     self.client.tournament_starting()?;
-                    dbg!(self.send(ClientToServerMessage::Void(JSONVoid::Void)))?;
+                    self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
                 ServerToClientMessage::End((won,)) => {
                     self.client.tournament_ending(won)?;

@@ -6,7 +6,8 @@ use fish::common::board::Board;
 
 use std::time::Duration;
 
-const REMOTE_CLIENT_TIMEOUT: Duration = Duration::from_secs(1);
+// TODO move back to 1s
+const REMOTE_CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 const USAGE: &str = "usage: ./xserver <port>";
 
 fn main() {
