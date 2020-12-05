@@ -9,7 +9,7 @@ const SIGNUP_NAME_TIMEOUT: Duration = Duration::from_secs(10);
 const MIN_SIGNUP_PLAYERS: usize = 5;
 const MAX_SIGNUP_PLAYERS: usize = 10;
 
-pub fn signup_clients(port: &str, client_timeout: Duration) -> Option<Vec<RemoteClient>> {
+pub fn signup_clients(port: usize, client_timeout: Duration) -> Option<Vec<RemoteClient>> {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     listener.set_nonblocking(true).unwrap();
 

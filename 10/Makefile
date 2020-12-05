@@ -1,4 +1,4 @@
-.PHONY: all test clean
+.PHONY: all xserver xclient
 
 all: xserver xclient
 
