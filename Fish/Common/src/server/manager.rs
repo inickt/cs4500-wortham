@@ -253,11 +253,6 @@ mod tests {
         client
     }
 
-    fn make_remote_player(port: usize) -> Box<dyn Client> {
-        let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect stream");
-        Box::new(RemoteClient::new(stream, Duration::from_millis(100)))
-    }
-
     pub fn run_tournament_with_players(players: Vec<Box<dyn Client>>) {
         let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
         let board = Board::with_holes(3, 4, holes, 1);

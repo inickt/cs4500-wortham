@@ -269,6 +269,7 @@ impl GameState {
     }
 
     /// Get a penguin at a position, None if no penguin at that position
+    #[allow(dead_code)]
     pub fn find_penguin_at_position(&self, posn: BoardPosn) -> Option<&Penguin> {
         let tile = self.board.get_tile_id(posn.x, posn.y)?;
         self.players.iter().find_map(|(_, player)| {
@@ -295,6 +296,7 @@ impl GameState {
         self.winning_players.is_some() || self.players.is_empty()
     }
 
+    #[allow(dead_code)]
     pub fn get_player_by_color_mut(&mut self, color: PlayerColor) -> Option<&mut Player> {
         self.players.iter_mut()
             .find(|(_, player)| player.color == color)
@@ -348,23 +350,8 @@ impl GameState {
         self.players[&player_id].score
     }
 
-    /// Returns true if the two tiles are adjacent or false if either tile is a hole.
-    pub fn tiles_are_adjacent(&self, tile1: TileId, tile2: TileId) -> bool {
-        match (self.get_tile(tile1), self.get_tile(tile2)) {
-            (Some(tile1), Some(tile2)) => {
-                tile1.north == Some(tile2.tile_id)
-                || tile1.northeast == Some(tile2.tile_id)
-                || tile1.southeast == Some(tile2.tile_id)
-                || tile1.south == Some(tile2.tile_id)
-                || tile1.southwest == Some(tile2.tile_id)
-                || tile1.northwest == Some(tile2.tile_id)
-            },
-            _ => false,
-        }
-    }
-
-    // Returns true if all penguins have a concrete position on the board.
-    // If this is false then we are still in the PlacePenguins phase of the game.
+    /// Returns true if all penguins have a concrete position on the board.
+    /// If this is false then we are still in the PlacePenguins phase of the game.
     pub fn all_penguins_are_placed(&self) -> bool {
         self.players.iter().all(|(_, player)| !player.has_unplaced_penguins())
     }
