@@ -411,7 +411,7 @@ pub mod tests {
         let holes = util::map_slice(&[(1, 1), (1, 0), (0, 1)], |pos| BoardPosn::from(*pos));
         let board_with_holes = Board::with_holes(2, 2, holes, 1);
         let mut gamestate = GameState::new(board_with_holes, 4);
-        let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
+        let player_id = *gamestate.players.iter().nth(0).unwrap().0;
 
         assert!(!gamestate.can_any_player_move_penguin());
         gamestate.place_avatar_without_changing_turn(player_id, TileId(0));
@@ -421,7 +421,7 @@ pub mod tests {
         // Can a player move when they have a penguin on the board with no holes blocking it?
         let board = Board::with_no_holes(3, 3, 3);
         let mut gamestate = GameState::new(board, 4);
-        let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
+        let player_id = *gamestate.players.iter().nth(0).unwrap().0;
 
         assert!(!gamestate.can_any_player_move_penguin());
         gamestate.place_avatar_without_changing_turn(player_id, TileId(0));
@@ -433,7 +433,7 @@ pub mod tests {
         let holes = util::map_slice(&[(1, 1), (0, 0)], |pos| BoardPosn::from(*pos));
         let board_with_holes = Board::with_holes(2, 2, holes, 1);
         let mut gamestate = GameState::new(board_with_holes, 4);
-        let (&player_id, player) = gamestate.players.iter().nth(0).unwrap();
+        let player_id = *gamestate.players.iter().nth(0).unwrap().0;
         assert!(!gamestate.can_any_player_move_penguin());
         gamestate.place_avatar_without_changing_turn(player_id, TileId(1));
         assert!(&gamestate.can_any_player_move_penguin()); // no penguin at 2, so can move

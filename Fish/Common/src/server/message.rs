@@ -2,7 +2,6 @@ use crate::common::gamestate::GameState;
 use crate::common::action::{ PlayerMove, Placement, Move };
 use crate::common::board::Board;
 use crate::common::player::{ Player, PlayerColor };
-use crate::common::penguin::Penguin;
 use crate::common::util;
 
 use serde::{ Serialize, Deserialize };

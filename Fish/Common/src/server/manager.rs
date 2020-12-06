@@ -3,7 +3,6 @@
 use crate::server::referee;
 use crate::server::referee::ClientStatus;
 use crate::server::client::{ Client, ClientWithId };
-use crate::server::message::*;
 use crate::common::gamestate;
 use crate::common::board::Board;
 use crate::common::util;
@@ -47,7 +46,7 @@ enum Bracket {
 pub fn run_tournament(clients: Vec<Box<dyn Client>>, board: Option<Board>) -> Vec<ClientStatus> {
     let mut results = BTreeMap::new();
 
-    let clients = clients.into_iter().enumerate().map(|(id, client)| {
+    let mut clients = clients.into_iter().enumerate().map(|(id, client)| {
         // Clients win by default until they lose a game or are kicked.
         // This means for the tournament of a single player, they win by default
         // even though they played 0 games
@@ -55,7 +54,7 @@ pub fn run_tournament(clients: Vec<Box<dyn Client>>, board: Option<Board>) -> Ve
         ClientWithId::new(id, client)
     }).collect::<Vec<_>>();
 
-    let clients = notify_tournament_started(&clients, &mut results);
+    let clients = notify_tournament_started(&mut clients, &mut results);
 
     run_tournament_rec(&clients, board, None, &mut results);
     let statuses = results.values().copied().collect();
@@ -71,7 +70,6 @@ fn notify_tournament_started(clients: &[ClientWithId], results: &mut BTreeMap<Pl
         match client.borrow_mut().tournament_starting() {
             Some(()) => Some(client.clone()),
             None => {
-                println!("Kicking {} in tournament_start", client.id.0);
                 results.insert(client.id, ClientStatus::Kicked);
                 None
             }

@@ -7,7 +7,7 @@ use crate::server::message::*;
 
 use std::net::TcpStream;
 use std::time::Duration;
-use std::io::{ Error, Write };
+use std::io::Write;
 
 use serde::Deserialize;
 use serde_json::Deserializer;

@@ -96,7 +96,6 @@ pub fn run_game_shared(clients: &[ClientWithId], board: Option<Board>) -> GameRe
         referee.do_player_turn();
     }
 
-    eprintln!("FINAL: {:?}", referee.phase.get_state());
     referee.get_game_result()
 }
 
@@ -235,7 +234,6 @@ impl Referee {
         self.phase.get_state_mut().remove_player(player);
 
         eprintln!("Kicking player {}!", player.0);
-        std::thread::sleep_ms(10000);
 
         self.clients.iter_mut()
             .find(|client| client.id == player)
