@@ -6,9 +6,9 @@ use fish::common::gamestate::GameState;
 use fish::common::game_tree::GameTree;
 use fish::common::action::{Move, Placement};
 use fish::server::referee;
-use fish::server::serverclient::ClientProxy;
-use fish::client::strategy;
-use fish::client::player::InHousePlayer;
+use fish::server::client::Client;
+use fish::server::strategy;
+use fish::server::ai_client::AIClient;
 
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,7 +42,7 @@ fn main() {
     let board = Board::with_no_holes(description.row, description.column, description.fish);
 
     let players = description.players.iter().map(|player| {
-        ClientProxy::InHouseAI(InHousePlayer::new(Box::new(player.clone())))
+        Box::new(AIClient::new(Box::new(player.clone()))) as Box<dyn Client>
     }).collect();
 
     // PlayerResult = Won | Lost | Kicked

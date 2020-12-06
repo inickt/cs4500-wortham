@@ -1,15 +1,11 @@
 #![allow(non_camel_case_types)]
-use std::collections::HashMap;
-
 use serde_json::{json, Deserializer};
 use serde::{ Serialize, Deserialize };
 
 use fish::common::action::Move;
 use fish::common::board::Board;
-use fish::common::direction::{ Direction, Direction::* };
+use fish::common::direction::Direction::*;
 use fish::common::gamestate::GameState;
-use fish::common::penguin::PenguinId;
-use fish::common::player::{ Player, PlayerId };
 use fish::common::penguin::Penguin;
 use fish::common::tile::TileId;
 use fish::common::game_tree::GameTree;
@@ -85,12 +81,9 @@ fn board_from_json(json_board: &JSONBoard) -> Board {
 
 fn move_from_json(state: &GameState, from_pos: JSONPosition, to_pos: JSONPosition) -> Move {
     // tile should be valid by constraint of spec
-    let tile_id = state.board.get_tile_id(to_pos[1], to_pos[0]).unwrap();
-
-    let from_xy = (from_pos[1], from_pos[0]).into();
-    let penguin_id = state.find_penguin_at_position(from_xy).unwrap().penguin_id;
-
-    Move { penguin_id, tile_id }
+    let from = state.board.get_tile_id(from_pos[1], from_pos[0]).unwrap();
+    let to = state.board.get_tile_id(to_pos[1], to_pos[0]).unwrap();
+    Move { from, to }
 }
 
 fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
@@ -104,7 +97,6 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
         // contains an uneven amount of penguins for each player.
         for place in json_player.places.iter() {
             let penguin = Penguin::new();
-            let penguin_id = penguin.penguin_id;
 
             // Must get the player again so that gamestate isn't mutably borrowed twice
             // during place_avatar_without_changing_turn
@@ -112,7 +104,7 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
             player.penguins.push(penguin);
 
             let tile_id = gamestate.board.get_tile(place[1], place[0]).unwrap().tile_id;
-            gamestate.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
+            gamestate.place_avatar_without_changing_turn(player_id, tile_id);
         }
     }
 }
@@ -133,8 +125,8 @@ fn find_neighboring_move(game: &GameTree, first_player_tile: TileId) -> Option<M
     for direction in &[North, Northeast, Southeast, South, Southwest, Northwest] {
         match player_tile.get_neighbor_id(*direction) {
             Some(neighbor) => {
-                let moves = moves.clone().filter(|move_| move_.tile_id == *neighbor);
-                let mut moves = all_min_by_key(moves, |move_| state.get_penguin_tile_position(move_.penguin_id).unwrap());
+                let moves = moves.clone().filter(|move_| move_.to == *neighbor);
+                let mut moves = all_min_by_key(moves, |move_| state.board.get_tile_position(move_.from));
                 match moves.nth(0) {
                     Some(move_) => return Some(move_),
                     None => (), // continue loop, check next direction
@@ -155,19 +147,27 @@ fn main() {
     let mut gamestate = GameState::new(board, json.state.players.len());
 
     place_penguins(&mut gamestate, &json.state.players);
+
+    let second_player = gamestate.turn_order[1];
     
     let mut game_tree = GameTree::new(&gamestate);
     let move_ = move_from_json(&gamestate, json.from, json.to);
 
     let tree_after_move = game_tree.get_game_after_move(move_).unwrap();
+
     let gamestate = tree_after_move.get_state();
 
-    match find_neighboring_move(&tree_after_move, move_.tile_id) {
-        Some(move_) => {
-            let from_pos = gamestate.get_penguin_tile_position(move_.penguin_id).unwrap();
-            let to_pos = gamestate.board.get_tile_position(move_.tile_id);
-            print!("{}", json!([[from_pos.y, from_pos.x], [to_pos.y, to_pos.x]]));
-        },
-        None => print!("false"),
+    if gamestate.current_turn != second_player {
+        // second player was skipped in turn order, they had no moves
+        print!("false")
+    } else {
+        match find_neighboring_move(&tree_after_move, move_.to) {
+            Some(move_) => {
+                let from_pos = gamestate.board.get_tile_position(move_.from);
+                let to_pos = gamestate.board.get_tile_position(move_.to);
+                print!("{}", json!([[from_pos.y, from_pos.x], [to_pos.y, to_pos.x]]));
+            },
+            None => print!("false"),
+        }
     }
 }
