@@ -234,6 +234,7 @@ impl Referee {
         self.phase.get_state_mut().remove_player(player);
 
         eprintln!("Kicking player {}!", player.0);
+        std::thread::sleep_ms(5000);
 
         self.clients.iter_mut()
             .find(|client| client.id == player)
