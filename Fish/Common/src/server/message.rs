@@ -61,13 +61,13 @@ pub enum ServerToClientMessage {
     End((bool,)),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum JSONVoid {
     Void
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum ClientToServerMessage {
     Void(JSONVoid),
@@ -206,5 +206,85 @@ fn remove_kicked_players(gamestate: &mut GameState, json_players: &[JSONPlayer])
 
     for player in players_to_kick {
         gamestate.remove_player(player);
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_start_message() {
+        assert_eq!(start_message(), r#"["start",[true]]"#);
+    }
+
+    #[test]
+    fn test_playing_as_message() {
+        assert_eq!(playing_as_message(PlayerColor::black), r#"["playing-as",["black"]]"#);
+        assert_eq!(playing_as_message(PlayerColor::red), r#"["playing-as",["red"]]"#);
+    }
+
+    #[test]
+    fn test_playing_with_message() {
+        assert_eq!(playing_with_message(&[PlayerColor::black, PlayerColor::brown]), 
+            r#"["playing-with",[["black","brown"]]]"#);
+        assert_eq!(playing_with_message(&[PlayerColor::white, PlayerColor::black, PlayerColor::brown]), 
+            r#"["playing-with",[["white","black","brown"]]]"#);
+    }
+
+    #[test]
+    fn test_setup_message() {
+        let board = Board::with_no_holes(3, 3, 3);
+        let gamestate = GameState::new(board, 4);
+        assert_eq!(setup_message(&gamestate),
+            concat!(
+                r#"["setup",[{"board":[[3,3,3],[3,3,3],[3,3,3]],"players":"#,
+                r#"[{"color":"red","places":[],"score":0},"#,
+                r#"{"color":"white","places":[],"score":0},"#,
+                r#"{"color":"brown","places":[],"score":0},"#,
+                r#"{"color":"black","places":[],"score":0}]}]]"#
+            ));
+    }
+
+    #[test]
+    fn test_take_turn_message() {
+        let board = Board::with_no_holes(3, 3, 3);
+        let gamestate = GameState::new(board, 4);
+        assert_eq!(take_turn_message(&gamestate, &[]), 
+            concat!(
+                r#"["take-turn",[{"board":[[3,3,3],[3,3,3],[3,3,3]],"players":"#,
+                r#"[{"color":"red","places":[],"score":0},"#,
+                r#"{"color":"white","places":[],"score":0},"#,
+                r#"{"color":"brown","places":[],"score":0},"#,
+                r#"{"color":"black","places":[],"score":0}]},[]]]"#
+            ));
+    }
+
+    #[test]
+    fn test_end_message() {
+        assert_eq!(end_message(true), r#"["end",[true]]"#);
+        assert_eq!(end_message(false), r#"["end",[false]]"#);
+    }
+
+    fn test_json_void() {
+        assert_eq!(serde_json::to_string(&JSONVoid::Void).unwrap(), "void");
+        assert_eq!(serde_json::from_str::<JSONVoid>("void").unwrap(), JSONVoid::Void);
+    }
+
+    fn test_client_to_server() {
+        assert_eq!(serde_json::to_string(&ClientToServerMessage::Void(JSONVoid::Void)).unwrap(), 
+            "void");
+        assert_eq!(serde_json::to_string(&ClientToServerMessage::Position([1,2])).unwrap(), 
+            "[1,2]");
+        assert_eq!(serde_json::to_string(&ClientToServerMessage::Action([[1,2],[3,4]])).unwrap(), 
+            "[[1,2],[3,4]]");
+
+        assert_eq!(serde_json::from_str::<ClientToServerMessage>("void").unwrap(), 
+            ClientToServerMessage::Void(JSONVoid::Void));
+        assert_eq!(serde_json::from_str::<ClientToServerMessage>("[2,1]").unwrap(), 
+            ClientToServerMessage::Position([2,1]));
+        assert_eq!(serde_json::from_str::<ClientToServerMessage>("[[2,1],[3,4]]").unwrap(), 
+            ClientToServerMessage::Action([[2,1],[3,4]]));
     }
 }
