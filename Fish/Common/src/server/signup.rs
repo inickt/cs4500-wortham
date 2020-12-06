@@ -1,4 +1,5 @@
 use crate::server::remote_client::RemoteClient;
+use crate::server::client::Client;
 
 use std::net::TcpListener;
 use std::time::{ Duration, Instant };
@@ -9,7 +10,7 @@ const SIGNUP_NAME_TIMEOUT: Duration = Duration::from_secs(10);
 const MIN_SIGNUP_PLAYERS: usize = 5;
 const MAX_SIGNUP_PLAYERS: usize = 10;
 
-pub fn signup_clients(port: usize, client_timeout: Duration) -> Option<Vec<RemoteClient>> {
+pub fn signup_clients(port: usize, client_timeout: Duration) -> Option<Vec<Box<dyn Client>>> {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     listener.set_nonblocking(true).unwrap();
 
@@ -28,7 +29,7 @@ pub fn signup_clients(port: usize, client_timeout: Duration) -> Option<Vec<Remot
     }
 }
 
-fn await_clients(listener: &TcpListener, clients: &mut Vec<RemoteClient>, client_timeout: Duration) {
+fn await_clients(listener: &TcpListener, clients: &mut Vec<Box<dyn Client>>, client_timeout: Duration) {
     let now = Instant::now();
 
     // Accept clients and their names in order, blocking for each client until they are
@@ -39,7 +40,7 @@ fn await_clients(listener: &TcpListener, clients: &mut Vec<RemoteClient>, client
             let mut remote_client = RemoteClient::new(stream, client_timeout);
             // as long as clients have a valid name we don't care if they are unique
             if remote_client.get_name(SIGNUP_NAME_TIMEOUT).is_some() {
-                clients.push(remote_client);
+                clients.push(Box::new(remote_client));
             }
         }
     }

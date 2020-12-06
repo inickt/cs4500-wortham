@@ -205,7 +205,9 @@ mod tests {
     use crate::common::action::{Placement, Move};
     use crate::server::strategy::{ Strategy, find_minmax_move, find_zigzag_placement };
     use crate::server::referee::ClientStatus::*;
-    use crate::server::{ ai_client, remote_client };
+    use crate::server::{ ai_client::AIClient, remote_client::RemoteClient };
+    use crate::server::signup;
+    use crate::client::client_to_server_proxy::ClientToServerProxy;
 
     use std::net::{ TcpListener, TcpStream, Shutdown };
     use std::time::Duration;
@@ -238,20 +240,33 @@ mod tests {
 
     /// Create a player that uses a SimpleStrategy
     fn make_simple_strategy_player() -> Box<dyn Client> {
-        Box::new(ai_client::AIClient::new(Box::new(SimpleStrategy)))
+        Box::new(AIClient::new(Box::new(SimpleStrategy)))
     }
 
     /// Creating a player that uses a cheating strategy
     fn make_cheating_player() -> Box<dyn Client> {
-        Box::new(ai_client::AIClient::new(Box::new(CheatingStrategy)))
+        Box::new(AIClient::new(Box::new(CheatingStrategy)))
     }
 
     fn make_player_fails_to_accept(port: usize) -> Box<dyn Client> {
         let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect stream");
         stream.shutdown(Shutdown::Both).expect("Failed to shutdown TcpStream");
-        Box::new(remote_client::RemoteClient::new(stream, Duration::from_millis(100)))
+        Box::new(RemoteClient::new(stream, Duration::from_millis(100)))
     }
 
+    fn make_remote_player(port: usize) -> Box<dyn Client> {
+        let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect stream");
+        Box::new(RemoteClient::new(stream, Duration::from_millis(100)))
+    }
+
+    pub fn run_tournament_with_players(players: Vec<Box<dyn Client>>) {
+        let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
+        let board = Board::with_holes(3, 4, holes, 1);
+        let statuses = run_tournament(players, Some(board));
+        let mut winners = vec![Lost; 8];
+        winners[0] = Won;
+        assert_eq!(statuses, winners);
+    }
 
     /// Run a full tournament of fish, with 8 players and a total of 2 rounds. The initial board after penguins are placed looks as follows:
     /// p1    p2    p3    p4
@@ -282,18 +297,27 @@ mod tests {
     /// Each player uses a simple strategy, with a min-max lookahead of 1.
     #[test]
     fn test_run_tournament() {
-        // make sure to test tournaments with > 2 rounds
-        // set up players
-        let players = util::make_n(8, |_|
-            make_simple_strategy_player()
-        );
+        let players = util::make_n(8, |_| make_simple_strategy_player());
+        run_tournament_with_players(players);
+    }
 
-        let holes = vec![BoardPosn::from((1, 2)), BoardPosn::from((2, 2)), BoardPosn::from((3, 2))];
-        let board = Board::with_holes(3, 4, holes, 1);
-        let statuses = run_tournament(players, Some(board));
-        let mut winners = vec![Lost; 8];
-        winners[0] = Won;
-        assert_eq!(statuses, winners);
+    /// Same tournament as above, but with all remote players. Expect the same results.
+    #[test]
+    fn test_run_remote_tournament() {
+        let timeout = Duration::from_millis(100);
+
+        let _threads: Vec<_> = (0..8).map(|_| {
+            std::thread::spawn(move || {
+                let ai = AIClient::with_zigzag_minmax_strategy();
+                ClientToServerProxy::new("name".to_string(), Box::new(ai), "127.0.0.1:8081", timeout)
+                    .expect("Unable to create client to server proxy")
+                    .tournament_loop()
+                    .expect("Remote player was kicked before tournament finished");
+            })
+        }).collect();
+
+        let players = signup::signup_clients(8081, timeout).expect("Couldn't signup clients!");
+        run_tournament_with_players(players);
     }
 
     /// Test the running of a single tournament round. The round is the same as the first round of
@@ -322,11 +346,11 @@ mod tests {
     // have their status updated to be kicked from the tournament.
     #[test]
     fn test_notify_tournament_started() {
-        let _listener = TcpListener::bind(format!("127.0.0.1:{}", 8081)).expect("Could not create listener");
+        let _listener = TcpListener::bind(format!("127.0.0.1:{}", 8082)).expect("Could not create listener");
 
         let clients = vec![
             ClientWithId::new(0, make_simple_strategy_player()), // player who will accept message
-            ClientWithId::new(1, make_player_fails_to_accept(8081)), // player that will fail to accept message
+            ClientWithId::new(1, make_player_fails_to_accept(8082)), // player that will fail to accept message
             ClientWithId::new(2, make_simple_strategy_player()), // player that accepts message
             ClientWithId::new(3, make_cheating_player()), // player that accepts message
         ];
@@ -414,7 +438,7 @@ mod tests {
     fn test_tournament_ends_when_two_rounds_in_a_row_produce_same_winners() {
         // set up 8 players
         let players = util::make_n(8, |_|
-            Box::new(ai_client::AIClient::with_zigzag_minmax_strategy()) as Box<dyn Client>
+            Box::new(AIClient::with_zigzag_minmax_strategy()) as Box<dyn Client>
         );
 
         // Only 8 spaces to place penguins with a total of 8 penguins in the game.
@@ -428,7 +452,7 @@ mod tests {
     fn test_tournament_ends_when_too_few_players_for_single_game() {
         // The only case where there are too few players (except for when there are none) is when there is only 1 player.
         let players: Vec<Box<dyn Client>> = vec![
-            Box::new(ai_client::AIClient::with_zigzag_minmax_strategy())
+            Box::new(AIClient::with_zigzag_minmax_strategy())
         ];
 
         let board = Board::with_no_holes(2, 4, 1);
