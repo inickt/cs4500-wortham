@@ -7,7 +7,7 @@ use fish::common::board::Board;
 use std::time::Duration;
 
 const SIGNUP_TIMEOUT: Duration = Duration::from_secs(30);
-const REMOTE_CLIENT_TIMEOUT: Duration = Duration::from_secs(1);
+const REMOTE_CLIENT_TIMEOUT: Duration = Duration::from_secs(3);
 const USAGE: &str = "usage: ./xserver <port>";
 
 fn main() {
