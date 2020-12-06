@@ -6,9 +6,9 @@ use serde::{ Serialize, Deserialize };
 
 use fish::common::action::Move;
 use fish::common::board::Board;
+use fish::common::tile::TileId;
 use fish::common::direction::{ Direction, Direction::* };
 use fish::common::gamestate::GameState;
-use fish::common::penguin::PenguinId;
 use fish::common::player::{ Player, PlayerId };
 use fish::common::penguin::Penguin;
 
@@ -99,7 +99,6 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
         // contains an uneven amount of penguins for each player.
         for place in json_player.places.iter() {
             let penguin = Penguin::new();
-            let penguin_id = penguin.penguin_id;
 
             // Must get the player again so that gamestate isn't mutably borrowed twice
             // during place_avatar_without_changing_turn
@@ -107,7 +106,7 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
             player.penguins.push(penguin);
 
             let tile_id = gamestate.board.get_tile(place[1], place[0]).unwrap().tile_id;
-            gamestate.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
+            gamestate.place_avatar_without_changing_turn(player_id, tile_id);
         }
     }
 }
@@ -115,11 +114,10 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
 /// Try to move a penguin to the first tile in the given direction.
 /// Moves the penguin (without changing the current turn) and returns true on success.
 /// Returns false on failure.
-fn try_move_penguin(gamestate: &mut GameState, penguin_id: PenguinId, direction: Direction) -> bool {
-    let penguin = gamestate.current_player().find_penguin(penguin_id).unwrap();
-    let tile = gamestate.get_tile(penguin.tile_id.unwrap()).unwrap();
+fn try_move_penguin(gamestate: &mut GameState, tile_id: TileId, direction: Direction) -> bool {
+    let tile = gamestate.get_tile(tile_id).unwrap();
     let mut occupied_tiles = gamestate.get_occupied_tiles();
-    occupied_tiles.remove(&penguin.tile_id.unwrap());
+    occupied_tiles.remove(&tile_id);
     let mut reachable_tiles = tile.all_reachable_tiles_in_direction(&gamestate.board, direction, &occupied_tiles);
     reachable_tiles.pop(); // Remove the current tile since it is considered reachable from itself in the helper above
 
@@ -127,7 +125,7 @@ fn try_move_penguin(gamestate: &mut GameState, penguin_id: PenguinId, direction:
         false
     } else {
         let destination = reachable_tiles.last().unwrap().tile_id;
-        let action = Move::new(penguin_id, destination);
+        let action = Move::new(tile_id, destination);
         // unwrap the result just to assert success since we know the tile is reachable
         gamestate.move_avatar_for_current_player(action).unwrap();
         true
@@ -197,7 +195,7 @@ fn main() {
     set_player_scores(&mut gamestate, &json.players);
     place_penguins(&mut gamestate, &json.players);
 
-    let first_penguin = gamestate.current_player().penguins[0].penguin_id;
+    let first_penguin = gamestate.current_player().penguins[0].tile_id.unwrap();
 
     for direction in &[North, Northeast, Southeast, South, Southwest, Northwest] {
         if try_move_penguin(&mut gamestate, first_penguin, *direction) {

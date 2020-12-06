@@ -7,7 +7,7 @@ use fish::common::gamestate::GameState;
 use fish::common::penguin::Penguin;
 use fish::common::game_tree::GameTree;
 
-use fish::client::strategy;
+use fish::server::strategy;
 
 #[derive(Serialize, Deserialize)]
 struct JSONState {
@@ -72,7 +72,6 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
         // contains an uneven amount of penguins for each player.
         for place in json_player.places.iter() {
             let penguin = Penguin::new();
-            let penguin_id = penguin.penguin_id;
 
             // Must get the player again so that gamestate isn't mutably borrowed twice
             // during place_avatar_without_changing_turn
@@ -80,7 +79,7 @@ fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
             player.penguins.push(penguin);
 
             let tile_id = gamestate.board.get_tile(place[1], place[0]).unwrap().tile_id;
-            gamestate.place_avatar_without_changing_turn(player_id, penguin_id, tile_id);
+            gamestate.place_avatar_without_changing_turn(player_id, tile_id);
         }
     }
 }
@@ -104,8 +103,8 @@ fn main() {
         println!("false");
     } else {
         let move_ = strategy::find_minmax_move(&mut game_tree, depth);
-        let from_pos = gamestate.get_penguin_tile_position(move_.penguin_id).unwrap();
-        let to_pos = gamestate.board.get_tile_position(move_.tile_id);
+        let from_pos = gamestate.board.get_tile_position(move_.from);
+        let to_pos = gamestate.board.get_tile_position(move_.to);
         println!("{}", json!([[from_pos.y, from_pos.x], [to_pos.y, to_pos.x]]));
     }
 }

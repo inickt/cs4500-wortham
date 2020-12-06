@@ -98,13 +98,8 @@ fn hash_state(state: &GameState) -> u64 {
 fn find_best_score_and_moves(game: &mut GameTree, player: PlayerId, lookahead: usize, cache: &mut MaxiMinCache) -> (usize, Option<Move>) {
     let is_players_turn = game.get_state().current_turn == player;
 
-    if game.is_game_over() || lookahead <= 1 {
-        let score = game.get_state().player_score(player);
-        if is_players_turn {
-            (score, game.get_state().get_valid_moves().get(0).copied())
-        } else {
-            (score, None)
-        }
+    if game.is_game_over() || lookahead == 0 {
+        (game.get_state().player_score(player), None)
     } else {
         // Lookahead is counted in rounds where every player takes a turn,
         // so only decrease it when the given player takes a turn.
