@@ -30,7 +30,7 @@ impl GameTree {
     /// that state with links to each potential subsequent state, but
     /// not any previous states.
     pub fn new(initial_state: &GameState) -> GameTree {
-        assert!(initial_state.all_penguins_are_placed());
+        assert!(initial_state.all_penguins_are_placed(), "{:?}", initial_state);
 
         let valid_moves = initial_state.get_valid_moves();
         if valid_moves.is_empty() {

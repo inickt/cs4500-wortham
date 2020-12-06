@@ -145,6 +145,7 @@ fn serialize_players(gamestate: &GameState) -> Vec<JSONPlayer> {
     let current_turn_index = gamestate.players.iter().position(|player| {
         *player.0 == gamestate.current_turn
     }).unwrap();
+
     json_players.rotate_left(current_turn_index);
     json_players
 }
@@ -157,11 +158,16 @@ pub fn serialize_gamestate(gamestate: &GameState) -> JSONGameState {
 }
 
 impl JSONGameState {
-    pub fn to_common_game_state(self) -> GameState {
+    pub fn to_common_game_state(self, previous_state: Option<&GameState>) -> GameState {
         let board = Board::from_tiles(self.board);
 
-        let mut gamestate = GameState::new(board, self.players.len());
+        let player_count = previous_state.map_or(self.players.len(), |state| state.players.len());
+        let mut gamestate = GameState::new(board, player_count);
 
+        // TODO: Remove kicked players like this or just serialize no penguins?
+        // Need to fix players not knowing the number of penguins they should have if others are
+        // kicked
+        remove_kicked_players(&mut gamestate, &self.players);
         set_player_scores(&mut gamestate, &self.players);
         place_penguins(&mut gamestate, &self.players);
 
@@ -169,27 +175,36 @@ impl JSONGameState {
     }
 }
 
-fn set_player_scores(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
-    assert_eq!(gamestate.turn_order.len(), json_players.len());
+fn remove_kicked_players(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
+    let players_to_kick = gamestate.players.iter()
+        .filter(|(_, player)| !json_players.iter().any(|json| json.color == player.color))
+        .map(|(id, _)| *id)
+        .collect::<Vec<_>>();
 
-    for (turn, json_player) in gamestate.turn_order.iter().copied().zip(json_players.iter()) {
-        let player = gamestate.players.get_mut(&turn).unwrap();
+    for player in players_to_kick {
+        gamestate.remove_player(player);
+    }
+}
+
+fn set_player_scores(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
+    for json_player in json_players {
+        let player = gamestate.get_player_by_color_mut(json_player.color).unwrap();
         player.score = json_player.score;
     }
 }
 
 fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
-    let player_ids = gamestate.turn_order.clone().into_iter();
+    for json_player in json_players {
+        let places = util::map_slice(&json_player.places,
+            |place| gamestate.board.get_tile_id(place[1], place[0]).unwrap());
 
-    for (player_id, json_player) in player_ids.zip(json_players.iter()) {
-        let player = gamestate.players.get_mut(&player_id).unwrap();
+        // The players list in the json may be in a different order than the
+        // immutable turn_order in teh gamestate, so we have to manually search
+        // for the corresponding player of the same color on each iteration.
+        let player = gamestate.get_player_by_color_mut(json_player.color).unwrap();
 
-        // Push a new penguin on each iteration, in case the given json_players
-        // contains an uneven amount of penguins for each player.
-        for (penguin, place) in player.penguins.iter_mut().zip(json_player.places.iter()) {
-            // instead of using .map, the tile id here is unwrapped then rewrapped in Some
-            // to force an assertion that the json should never have invalid penguin placements.
-            penguin.tile_id = Some(gamestate.board.get_tile(place[1], place[0]).unwrap().tile_id);
+        for i in 0 .. player.penguins.len() {
+            player.penguins[i].tile_id = places.get(i).copied();
         }
     }
 }

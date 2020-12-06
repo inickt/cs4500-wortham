@@ -198,6 +198,9 @@ impl Referee {
     /// Invariant: If None is returned then the current_turn does not change.
     fn do_player_move(&mut self) -> Option<()> {
         let move_history = self.get_move_history_for_current_client();
+
+        println!("Telling client to get move...\nCurrent state:\n{:?}", self.phase.get_state());
+
         let move_ = dbg!(self.current_client().borrow_mut().get_move(self.phase.get_state(), &move_history))?;
         let current_player_color = self.get_client_player_color(self.current_client());
 

@@ -1,6 +1,7 @@
 use crate::server::client::Client;
-use crate::common::util;
 use crate::server::message::*;
+use crate::common::util;
+use crate::common::gamestate::GameState;
 
 use std::net::TcpStream;
 use std::time::Duration;
@@ -14,6 +15,7 @@ pub struct ClientToServerProxy {
     client: Box<dyn Client>,
     stream: TcpStream,
     timeout: Duration,
+    state: Option<GameState>,
 }
 
 impl ClientToServerProxy {
@@ -21,7 +23,7 @@ impl ClientToServerProxy {
         let stream = TcpStream::connect(address).ok()?;
         stream.set_read_timeout(Some(timeout)).unwrap();
         stream.set_write_timeout(Some(timeout)).unwrap();
-        Some(ClientToServerProxy { name, client, stream, timeout })
+        Some(ClientToServerProxy { name, client, stream, timeout, state: None })
     }
 
     // TODO: Add tests
@@ -45,16 +47,19 @@ impl ClientToServerProxy {
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
                 ServerToClientMessage::Setup((json_gamestate,)) => {
-                    let gamestate = json_gamestate.to_common_game_state();
+                    let gamestate = json_gamestate.to_common_game_state(self.state.as_ref());
                     let placement = self.client.get_placement(&gamestate)?;
                     let json_position = placement_to_json_position(&gamestate.board, placement);
+                    self.state = Some(gamestate);
                     self.send(ClientToServerMessage::Position(json_position))?;
                 },
                 ServerToClientMessage::TakeTurn(json_gamestate, _) => {
                     // TODO pass history after converting if we want to keep it
-                    let gamestate = json_gamestate.to_common_game_state();
+                    let gamestate = json_gamestate.to_common_game_state(self.state.as_ref());
                     let move_ = self.client.get_move(&gamestate, &[])?;
-                    self.send(ClientToServerMessage::Action(move_to_json_action(&gamestate.board, move_)))?;
+                    let json_move = move_to_json_action(&gamestate.board, move_);
+                    self.state = Some(gamestate);
+                    self.send(ClientToServerMessage::Action(json_move))?;
                 },
             }
         }

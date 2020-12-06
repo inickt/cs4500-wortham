@@ -306,7 +306,7 @@ mod tests {
     fn test_run_remote_tournament() {
         let timeout = Duration::from_millis(100);
 
-        let _threads: Vec<_> = (0..8).map(|_| {
+        let threads: Vec<_> = (0..8).map(|_| {
             std::thread::spawn(move || {
                 let ai = AIClient::with_zigzag_minmax_strategy();
                 ClientToServerProxy::new("name".to_string(), Box::new(ai), "127.0.0.1:8081", timeout)
@@ -318,6 +318,10 @@ mod tests {
 
         let players = signup::signup_clients(8081, timeout).expect("Couldn't signup clients!");
         run_tournament_with_players(players);
+
+        for thread in threads {
+            thread.join().ok();
+        }
     }
 
     /// Test the running of a single tournament round. The round is the same as the first round of

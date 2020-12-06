@@ -125,9 +125,6 @@ impl GameState {
     /// to the number of players in turn_order.
     /// This will panic if turn_order.len() is < MIN_PLAYERS_PER_GAME or > MAX_PLAYERS_PER_GAME.
     pub fn with_players(board: Board, turn_order: Vec<PlayerId>) -> GameState {
-        assert!(turn_order.len() >= MIN_PLAYERS_PER_GAME, "Fish must be played with at least {} players!", MIN_PLAYERS_PER_GAME);
-        assert!(turn_order.len() <= MAX_PLAYERS_PER_GAME, "Fish only supports up to {} players!", MAX_PLAYERS_PER_GAME);
-
         // Each player receives 6 - N penguins, where N is the number of players
         let penguins_per_player = PENGUIN_FACTOR - turn_order.len(); 
 
@@ -289,6 +286,12 @@ impl GameState {
     /// some players have won, or there are no players left in the game.
     pub fn is_game_over(&self) -> bool {
         self.winning_players.is_some() || self.players.is_empty()
+    }
+
+    pub fn get_player_by_color_mut(&mut self, color: PlayerColor) -> Option<&mut Player> {
+        self.players.iter_mut()
+            .find(|(_, player)| player.color == color)
+            .map(|(_, player)| player)
     }
 
     /// Advance the turn of this game to the next player's turn
