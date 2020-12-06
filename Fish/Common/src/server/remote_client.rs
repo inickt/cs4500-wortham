@@ -12,18 +12,31 @@ use std::io::Write;
 use serde::Deserialize;
 use serde_json::Deserializer;
 
+/// A remote client that is communicated with only through TcpStream.
+/// This RemoteClient will handle serialization of each ServerToClientMessage
+/// into json and sending them through tcp.
+///
+/// See ClientToServerProxy for the other side of this connection which will
+/// handle deserialization of each message and running the client-side main loop
+/// until the game is over.
 pub struct RemoteClient {
     stream: TcpStream,
     timeout: Duration,
 }
 
 impl RemoteClient {
+    /// Creates a new RemoteClient from the given stream, setting both
+    /// read and write timeouts to the given Duration.
     pub fn new(stream: TcpStream, timeout: Duration) -> RemoteClient {
         stream.set_read_timeout(Some(timeout)).unwrap();
         stream.set_write_timeout(Some(timeout)).unwrap();
         RemoteClient { stream, timeout }
     }
 
+    /// Receives and validates a name from the given TcpStream.
+    /// A valid name:
+    /// - Is between 1 and 12 characters inclusive
+    /// - Consists of only ascii alphabetic characters
     pub fn get_name(&mut self, timeout: Duration) -> Option<String> {
         let name: String = self.receive_with_timeout(timeout)?;
         if !name.is_empty() && name.len() <= 12 && name.chars().all(|c| c.is_ascii_alphabetic()) {
@@ -48,36 +61,33 @@ impl RemoteClient {
         self.stream.write(message.as_bytes()).ok()?;
         self.receive()
     }
+
+    fn void_call(&mut self, message: String) -> Option<()> {
+        match self.call(message)? {
+            ClientToServerMessage::Void(_) => Some(()),
+            _ => None
+        }
+    }
 }
 
 impl Client for RemoteClient {
     fn tournament_starting(&mut self) -> Option<()> {
-        match self.call(start_message())? {
-            ClientToServerMessage::Void(_) => Some(()),
-            _ => None
-        }
+        self.void_call(start_message())
     }
 
     fn tournament_ending(&mut self, won: bool) -> Option<()> {
-        match self.call(end_message(won))? {
-            ClientToServerMessage::Void(_) => Some(()),
-            _ => None
-        }
+        self.void_call(end_message(won))
     }
 
     fn initialize_game(&mut self, initial_gamestate: &GameState, player_color: PlayerColor) -> Option<()> {
-        match self.call(playing_as_message(player_color))? {
-            ClientToServerMessage::Void(_) => Some(()),
-            _ => None
-        }?;
+        self.void_call(playing_as_message(player_color))?;
+
         let other_colors = initial_gamestate.players.iter()
             .map(|player| player.1.color)
             .filter(|color| *color != player_color)
             .collect::<Vec<PlayerColor>>();
-        match self.call(playing_with_message(&other_colors))? {
-            ClientToServerMessage::Void(_) => Some(()),
-            _ => None
-        }
+
+        self.void_call(playing_with_message(&other_colors))
     }
 
     fn get_placement(&mut self, gamestate: &GameState) -> Option<Placement> {

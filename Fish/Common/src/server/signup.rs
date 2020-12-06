@@ -62,7 +62,7 @@ fn await_clients(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::{ ai_client::AIClient, remote_client::RemoteClient };
+    use crate::server::ai_client::AIClient;
     use crate::client::client_to_server_proxy::ClientToServerProxy;
 
     const TIMEOUT_200MS: Duration = Duration::from_millis(200);
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_max_signup() {
-        let threads: Vec<_> = (0..12).map(|num| {
+        let threads: Vec<_> = (0..12).map(|_| {
             std::thread::spawn(move || {
                 std::thread::sleep(TIMEOUT_200MS);
                 let ai = AIClient::with_zigzag_minmax_strategy();

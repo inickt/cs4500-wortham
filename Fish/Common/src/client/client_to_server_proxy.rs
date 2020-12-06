@@ -1,7 +1,6 @@
 use crate::server::client::Client;
 use crate::server::message::*;
 use crate::common::util;
-use crate::common::gamestate::GameState;
 
 use std::net::TcpStream;
 use std::time::Duration;
@@ -10,6 +9,15 @@ use std::io::Write;
 use serde::Deserialize;
 use serde_json::Deserializer;
 
+/// A remote interface from client -> server.
+/// Communicates with the server via the internal TcpStream.
+///
+/// This proxy layer will not make any placement/move decisions
+/// for itself, it simply delegates to the given Client for each
+/// of these decisions. This way, you can have a remote ai or a
+/// remote human player by passing in the appropriate client upon
+/// construction. The server-side counterpart to this connection
+/// would be the RemoteClient.
 pub struct ClientToServerProxy {
     name: String,
     client: Box<dyn Client>,
@@ -32,7 +40,9 @@ impl ClientToServerProxy {
         })
     }
 
-    // TODO: Add tests
+    /// Loops until the entire game is finished, forwarding each
+    /// received message to the inner Client, returning early
+    /// if any incoming message is malformed.
     pub fn tournament_loop(&mut self) -> Option<bool> {
         self.send_name()?;
         loop {
@@ -69,12 +79,17 @@ impl ClientToServerProxy {
         }
     }
 
+    /// Send the client's name through the stream. The client's name is a bit special
+    /// in that it is not a ClientToServerMessage since it could otherwise collide with
+    /// the "void" message if the client names themselves "void".
     pub fn send_name(&mut self) -> Option<()> {
         let json_name = serde_json::to_string(&self.name).ok()?;
         self.stream.write(json_name.as_bytes()).ok()?;
         Some(())
     }
 
+    /// Receive an arbitrary ServerToClientMessage from self.stream,
+    /// waiting a maximum Duration of self.timeout
     fn receive(&mut self) -> Option<ServerToClientMessage> {
         let mut de = Deserializer::from_reader(self.stream.try_clone().unwrap());
         util::try_with_timeout(self.timeout, || {
@@ -82,6 +97,7 @@ impl ClientToServerProxy {
         })
     }
 
+    /// Send an arbitrary ClientToServerMessage to self.stream
     fn send(&mut self, message: ClientToServerMessage) -> Option<()> {
         self.stream.write(serde_json::to_string(&message).ok()?.as_bytes()).ok()?;
         Some(())

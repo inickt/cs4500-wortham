@@ -8,20 +8,20 @@ use crate::server::strategy::{ Strategy, ZigZagMinMaxStrategy };
 use crate::server::client::Client;
 
 
-/// Represents the in-house AI player for the Fish game.
-/// This player is responsible for using their strategy
+/// Represents the in-house AI client for the Fish game.
+/// This client is responsible for using their strategy
 /// to determine what action to take on their turn.
 pub struct AIClient {
     strategy: Box<dyn Strategy>,
 }
 
 impl AIClient {
-    /// Creates a new AI player using the given streams.
+    /// Creates a new AI client using the given streams.
     pub fn new(strategy: Box<dyn Strategy>) -> AIClient {
         AIClient { strategy }
     }
 
-    /// Helper to create a player with the zigzag minmax strategy.
+    /// Helper to create a client with the zigzag minmax strategy.
     pub fn with_zigzag_minmax_strategy() -> AIClient {
         AIClient { strategy: Box::new(ZigZagMinMaxStrategy) }
     }
