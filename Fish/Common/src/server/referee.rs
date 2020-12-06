@@ -92,9 +92,11 @@ pub fn run_game_shared(clients: &[ClientWithId], board: Option<Board>) -> GameRe
     referee.initialize_clients();
 
     while !referee.is_game_over() {
+        eprintln!("{:?}", referee.phase.get_state());
         referee.do_player_turn();
     }
 
+    eprintln!("FINAL: {:?}", referee.phase.get_state());
     referee.get_game_result()
 }
 
@@ -129,7 +131,6 @@ impl Referee {
         }
 
         for id in clients_to_kick {
-            println!("Kicking {} in initialize_client", id.0);
             self.kick_player(id);
         }
     }
@@ -171,7 +172,6 @@ impl Referee {
         };
 
         if success.is_none() {
-            println!("Kicking current player in do_player_turn in phase {:?}", self.phase);
             self.kick_current_player();
         }
 
@@ -199,17 +199,15 @@ impl Referee {
     fn do_player_move(&mut self) -> Option<()> {
         let move_history = self.get_move_history_for_current_client();
 
-        println!("Telling client to get move...\nCurrent state:\n{:?}", self.phase.get_state());
-
-        let move_ = dbg!(self.current_client().borrow_mut().get_move(self.phase.get_state(), &move_history))?;
+        let move_ = self.current_client().borrow_mut().get_move(self.phase.get_state(), &move_history)?;
         let current_player_color = self.get_client_player_color(self.current_client());
 
         match &mut self.phase {
             GamePhase::MovingPenguins(gametree) => {
                 let starting_state = gametree.get_state();
-                let player_move = dbg!(PlayerMove::new(current_player_color, move_, starting_state))?;
+                let player_move = PlayerMove::new(current_player_color, move_, starting_state)?;
 
-                dbg!(self.phase.try_do_move(move_))?;
+                self.phase.try_do_move(move_)?;
                 self.move_history.push(player_move);
                 Some(())
             },
@@ -235,6 +233,9 @@ impl Referee {
     /// they were kicked.
     fn kick_player(&mut self, player: PlayerId) {
         self.phase.get_state_mut().remove_player(player);
+
+        eprintln!("Kicking player {}!", player.0);
+        std::thread::sleep_ms(10000);
 
         self.clients.iter_mut()
             .find(|client| client.id == player)

@@ -57,6 +57,8 @@ impl ClientToServerProxy {
                 },
                 ServerToClientMessage::Setup((json_gamestate,)) => {
                     let gamestate = json_gamestate.to_common_game_state(self.player_count);
+
+                    eprint!("{:?}", gamestate);
                     let placement = self.client.get_placement(&gamestate)?;
                     let json_position = placement_to_json_position(&gamestate.board, placement);
                     self.state = Some(gamestate);
@@ -65,6 +67,8 @@ impl ClientToServerProxy {
                 ServerToClientMessage::TakeTurn(json_gamestate, _) => {
                     // TODO pass history after converting if we want to keep it
                     let gamestate = json_gamestate.to_common_game_state(self.player_count);
+
+                    eprint!("{:?}", gamestate);
                     let move_ = self.client.get_move(&gamestate, &[])?;
                     let json_move = move_to_json_action(&gamestate.board, move_);
                     self.state = Some(gamestate);

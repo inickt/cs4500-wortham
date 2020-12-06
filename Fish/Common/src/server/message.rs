@@ -167,10 +167,18 @@ impl JSONGameState {
         let mut gamestate = GameState::new(board, player_count);
 
         remove_kicked_players(&mut gamestate, &self.players);
+        set_current_turn(&mut gamestate, &self.players);
         set_player_scores(&mut gamestate, &self.players);
         place_penguins(&mut gamestate, &self.players);
 
         gamestate
+    }
+}
+
+fn set_current_turn(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
+    if !json_players.is_empty() {
+        let player = gamestate.get_player_by_color_mut(json_players[0].color);
+        gamestate.current_turn = player.unwrap().player_id;
     }
 }
 
