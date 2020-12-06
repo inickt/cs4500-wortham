@@ -96,16 +96,17 @@ fn hash_state(state: &GameState) -> u64 {
 /// 
 /// See find_best_move for the specific algorithm used to select the best move.
 fn find_best_score_and_moves(game: &mut GameTree, player: PlayerId, lookahead: usize, cache: &mut MaxiMinCache) -> (usize, Option<Move>) {
-    let is_players_turn = game.get_state().current_turn == player;
+    let state = game.get_state();
+    let is_players_turn = state.current_turn == player;
 
-    if game.is_game_over() || lookahead == 0 {
-        (game.get_state().player_score(player), None)
+    if game.is_game_over() || lookahead == 0 || !state.can_player_move(player) {
+        (state.player_score(player), None)
     } else {
         // Lookahead is counted in rounds where every player takes a turn,
         // so only decrease it when the given player takes a turn.
         let lookahead = lookahead - if is_players_turn { 1 } else { 0 };
 
-        let hash = hash_state(game.get_state());
+        let hash = hash_state(state);
         if let Some((score, move_)) = cache.get(&hash) {
             return (*score, Some(*move_));
         }

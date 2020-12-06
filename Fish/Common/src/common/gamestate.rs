@@ -234,7 +234,14 @@ impl GameState {
     /// Returns true if any player has a penguin they can move,
     /// false if not (and the game is thus over)
     pub fn can_any_player_move_penguin(&self) -> bool {
-        self.players.iter().any(|(_, player)| player.can_move_a_penguin(&self.board, &self.get_occupied_tiles()))
+        let occupied_tiles = self.get_occupied_tiles();
+        self.players.iter().any(|(_, player)| player.can_move_a_penguin(&self.board, &occupied_tiles))
+    }
+
+    /// Returns true if the given player can move a penguin
+    pub fn can_player_move(&self, player: PlayerId) -> bool {
+        self.players.get(&player).map_or(false, |player|
+            player.can_move_a_penguin(&self.board, &self.get_occupied_tiles()))
     }
 
     /// Returns the set of tiles on this gamestate's board which have a penguin on them
