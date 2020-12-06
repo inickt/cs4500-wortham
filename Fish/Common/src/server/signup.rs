@@ -52,7 +52,7 @@ fn await_clients(
         if let Ok((stream, _)) = listener.accept() {
             let mut remote_client = RemoteClient::new(stream, client_timeout);
             // as long as clients have a valid name we don't care if they are unique
-            if remote_client.get_name(SIGNUP_NAME_TIMEOUT).is_some() {
+            if remote_client.get_name(name_timeout).is_some() {
                 clients.push(Box::new(remote_client));
             }
         }
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_name_timeout() {
+    fn test_await_clients_name_timeout() {
         let threads: Vec<_> = (0..8).map(|num| {
             std::thread::spawn(move || {
                 std::thread::sleep(TIMEOUT_200MS);
@@ -186,7 +186,12 @@ mod tests {
             })
         }).collect();
 
-        assert_eq!(signup_clients(8089, TIMEOUT_1S, TIMEOUT_1S).unwrap().len(), 7);
+        let listener = TcpListener::bind("127.0.0.1:8089").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let mut clients = vec![];
+        await_clients(&listener, &mut clients, TIMEOUT_1S, TIMEOUT_1S, TIMEOUT_200MS);
+
+        assert_eq!(clients.len(), 7);
 
         for thread in threads {
             thread.join().ok();
