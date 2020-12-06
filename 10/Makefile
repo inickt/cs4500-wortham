@@ -1,9 +1,9 @@
-.PHONY: all xserver xclient
+.PHONY: all xserver xclients
 
-all: xserver xclient
+all: xserver xclients
 
 xserver:
 	cd Other/xserver && cargo build -j7 --release && cp target/release/xserver ../..
 
-xclient:
-	cd Other/xclient && cargo build -j7 --release && cp target/release/xclient ../..
+xclients:
+	cd Other/xclients && cargo build -j7 --release && cp target/release/xclients ../..
