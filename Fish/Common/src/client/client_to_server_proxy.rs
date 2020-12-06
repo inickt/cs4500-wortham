@@ -15,7 +15,6 @@ pub struct ClientToServerProxy {
     client: Box<dyn Client>,
     stream: TcpStream,
     timeout: Duration,
-    state: Option<GameState>,
     player_count: usize,
 }
 
@@ -29,7 +28,6 @@ impl ClientToServerProxy {
             client,
             stream,
             timeout,
-            state: None,
             player_count: 0,
         })
     }
@@ -61,7 +59,6 @@ impl ClientToServerProxy {
                     eprint!("{:?}", gamestate);
                     let placement = self.client.get_placement(&gamestate)?;
                     let json_position = placement_to_json_position(&gamestate.board, placement);
-                    self.state = Some(gamestate);
                     self.send(ClientToServerMessage::Position(json_position))?;
                 },
                 ServerToClientMessage::TakeTurn(json_gamestate, _) => {
@@ -71,7 +68,6 @@ impl ClientToServerProxy {
                     eprint!("{:?}", gamestate);
                     let move_ = self.client.get_move(&gamestate, &[])?;
                     let json_move = move_to_json_action(&gamestate.board, move_);
-                    self.state = Some(gamestate);
                     self.send(ClientToServerMessage::Action(json_move))?;
                 },
             }
