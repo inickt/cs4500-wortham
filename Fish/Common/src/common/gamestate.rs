@@ -24,7 +24,7 @@ pub const MIN_PLAYERS_PER_GAME: usize = 2;
 pub const MAX_PLAYERS_PER_GAME: usize = 4;
 
 /// Each player receives 6 - player_count penguins to start the game
-const PENGUIN_FACTOR: usize = 6;
+pub const PENGUIN_FACTOR: usize = 6;
 
 /// Rc<RefCell<T>> gives a copiable, mutable reference to its T
 ///

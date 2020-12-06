@@ -1,7 +1,9 @@
 use crate::common::gamestate::GameState;
 use crate::common::action::{ PlayerMove, Placement, Move };
 use crate::common::board::Board;
-use crate::common::player::{ Player, PlayerColor };
+use crate::common::player::{ Player, PlayerId, PlayerColor };
+use crate::common::penguin::Penguin;
+use crate::common::gamestate::PENGUIN_FACTOR;
 use crate::common::util;
 
 use serde::{ Serialize, Deserialize };
@@ -166,18 +168,31 @@ impl JSONGameState {
         let mut gamestate = GameState::new(board, player_count);
 
         remove_kicked_players(&mut gamestate, &self.players);
-        set_current_turn(&mut gamestate, &self.players);
-        set_player_scores(&mut gamestate, &self.players);
-        place_penguins(&mut gamestate, &self.players);
+        assert_eq!(gamestate.turn_order.len(), self.players.len());
+
+        for (id, json_player) in gamestate.turn_order.iter().zip(self.players.iter()) {
+            gamestate.players.insert(*id, json_player.to_common_player(*id, &gamestate, player_count));
+        }
 
         gamestate
     }
 }
 
-fn set_current_turn(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
-    if !json_players.is_empty() {
-        let player = gamestate.get_player_by_color_mut(json_players[0].color);
-        gamestate.current_turn = player.unwrap().player_id;
+impl JSONPlayer {
+    fn to_common_player(&self, player_id: PlayerId, state: &GameState, player_count: usize) -> Player {
+        let places = util::map_slice(&self.places,
+            |place| state.board.get_tile_id(place[1], place[0]).unwrap());
+
+        let penguins = (0 .. PENGUIN_FACTOR - player_count).map(|i| {
+            Penguin { tile_id: places.get(i).copied() }
+        }).collect();
+
+        Player {
+            color: self.color,
+            score: self.score,
+            player_id,
+            penguins,
+        }
     }
 }
 
@@ -189,28 +204,5 @@ fn remove_kicked_players(gamestate: &mut GameState, json_players: &[JSONPlayer])
 
     for player in players_to_kick {
         gamestate.remove_player(player);
-    }
-}
-
-fn set_player_scores(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
-    for json_player in json_players {
-        let player = gamestate.get_player_by_color_mut(json_player.color).unwrap();
-        player.score = json_player.score;
-    }
-}
-
-fn place_penguins(gamestate: &mut GameState, json_players: &[JSONPlayer]) {
-    for json_player in json_players {
-        let places = util::map_slice(&json_player.places,
-            |place| gamestate.board.get_tile_id(place[1], place[0]).unwrap());
-
-        // The players list in the json may be in a different order than the
-        // immutable turn_order in teh gamestate, so we have to manually search
-        // for the corresponding player of the same color on each iteration.
-        let player = gamestate.get_player_by_color_mut(json_player.color).unwrap();
-
-        for i in 0 .. player.penguins.len() {
-            player.penguins[i].tile_id = places.get(i).copied();
-        }
     }
 }
