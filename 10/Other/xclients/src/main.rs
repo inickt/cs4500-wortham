@@ -20,12 +20,11 @@ fn run_clients(num_clients: usize, address: String) {
             let ai_player = AIClient::new(Box::new(ZigZagMinMaxStrategy));
             let mut client = ClientToServerProxy::new("AIClient".to_string(), Box::new(ai_player), &address, TIMEOUT)
                 .expect(&format!("Unable to connect to server on thread {}", num));
-            match client.tournament_loop() {
-                Some(won) => println!("AI Player {} completed tournament and {}.", num, if won { "won" } else { "lost" }),
-                None =>  println!("AI Player {} was kicked or another error occurred.", num),
-            };
+
+            client.tournament_loop();
         })
     }).collect::<Vec<_>>();
+
     for thread in threads {
         thread.join().ok();
     }
