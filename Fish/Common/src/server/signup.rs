@@ -139,16 +139,16 @@ mod tests {
             std::thread::spawn(move || {
                 std::thread::sleep(TIMEOUT_200MS);
                 let ai = AIClient::with_zigzag_minmax_strategy();
-                let mut client = ClientToServerProxy::new("name".to_string(), Box::new(ai), "127.0.0.1:8087", TIMEOUT_1S)
-                    .expect("Unable to create client to server proxy");
-                client.send_name().expect("Unable to send name");
+                if let Some(mut client) = ClientToServerProxy::new("name".to_string(), Box::new(ai), "127.0.0.1:8087", TIMEOUT_1S) {
+                    client.send_name();
+                }
             })
         }).collect();
 
         assert_eq!(signup_clients(8087, TIMEOUT_1S, TIMEOUT_1S).unwrap().len(), 10);
 
         for thread in threads {
-            thread.join().ok();
+            thread.join().unwrap();
         }
     }
 
@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(signup_clients(8088, TIMEOUT_1S, TIMEOUT_1S).unwrap().len(), 7);
 
         for thread in threads {
-            thread.join().ok();
+            thread.join().unwrap();
         }
     }
 
@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(clients.len(), 7);
 
         for thread in threads {
-            thread.join().ok();
+            thread.join().unwrap();
         }
     }
 }
