@@ -158,15 +158,14 @@ pub fn serialize_gamestate(gamestate: &GameState) -> JSONGameState {
 }
 
 impl JSONGameState {
-    pub fn to_common_game_state(self, previous_state: Option<&GameState>) -> GameState {
+    pub fn to_common_game_state(self, player_count: usize) -> GameState {
         let board = Board::from_tiles(self.board);
 
-        let player_count = previous_state.map_or(self.players.len(), |state| state.players.len());
+        // Use the passed-in original player count rather than self.players.len()
+        // in case some players have been kicked, so that we can still give the
+        // correct penguin count to each player.
         let mut gamestate = GameState::new(board, player_count);
 
-        // TODO: Remove kicked players like this or just serialize no penguins?
-        // Need to fix players not knowing the number of penguins they should have if others are
-        // kicked
         remove_kicked_players(&mut gamestate, &self.players);
         set_player_scores(&mut gamestate, &self.players);
         place_penguins(&mut gamestate, &self.players);

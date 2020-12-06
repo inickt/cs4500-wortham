@@ -16,6 +16,7 @@ pub struct ClientToServerProxy {
     stream: TcpStream,
     timeout: Duration,
     state: Option<GameState>,
+    player_count: usize,
 }
 
 impl ClientToServerProxy {
@@ -23,7 +24,14 @@ impl ClientToServerProxy {
         let stream = TcpStream::connect(address).ok()?;
         stream.set_read_timeout(Some(timeout)).unwrap();
         stream.set_write_timeout(Some(timeout)).unwrap();
-        Some(ClientToServerProxy { name, client, stream, timeout, state: None })
+        Some(ClientToServerProxy {
+            name,
+            client,
+            stream,
+            timeout,
+            state: None,
+            player_count: 0,
+        })
     }
 
     // TODO: Add tests
@@ -43,11 +51,12 @@ impl ClientToServerProxy {
                 ServerToClientMessage::PlayingAs(_) => {
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
-                ServerToClientMessage::PlayingWith(_) => {
+                ServerToClientMessage::PlayingWith((colors,)) => {
+                    self.player_count = colors.len() + 1;
                     self.send(ClientToServerMessage::Void(JSONVoid::Void))?;
                 },
                 ServerToClientMessage::Setup((json_gamestate,)) => {
-                    let gamestate = json_gamestate.to_common_game_state(self.state.as_ref());
+                    let gamestate = json_gamestate.to_common_game_state(self.player_count);
                     let placement = self.client.get_placement(&gamestate)?;
                     let json_position = placement_to_json_position(&gamestate.board, placement);
                     self.state = Some(gamestate);
@@ -55,7 +64,7 @@ impl ClientToServerProxy {
                 },
                 ServerToClientMessage::TakeTurn(json_gamestate, _) => {
                     // TODO pass history after converting if we want to keep it
-                    let gamestate = json_gamestate.to_common_game_state(self.state.as_ref());
+                    let gamestate = json_gamestate.to_common_game_state(self.player_count);
                     let move_ = self.client.get_move(&gamestate, &[])?;
                     let json_move = move_to_json_action(&gamestate.board, move_);
                     self.state = Some(gamestate);
