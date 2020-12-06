@@ -267,20 +267,22 @@ mod tests {
         assert_eq!(end_message(false), r#"["end",[false]]"#);
     }
 
+    #[test]
     fn test_json_void() {
-        assert_eq!(serde_json::to_string(&JSONVoid::Void).unwrap(), "void");
-        assert_eq!(serde_json::from_str::<JSONVoid>("void").unwrap(), JSONVoid::Void);
+        assert_eq!(serde_json::to_string(&JSONVoid::Void).unwrap(), "\"void\"");
+        assert_eq!(serde_json::from_str::<JSONVoid>("\"void\"").unwrap(), JSONVoid::Void);
     }
 
+    #[test]
     fn test_client_to_server() {
         assert_eq!(serde_json::to_string(&ClientToServerMessage::Void(JSONVoid::Void)).unwrap(), 
-            "void");
+            "\"void\"");
         assert_eq!(serde_json::to_string(&ClientToServerMessage::Position([1,2])).unwrap(), 
             "[1,2]");
         assert_eq!(serde_json::to_string(&ClientToServerMessage::Action([[1,2],[3,4]])).unwrap(), 
             "[[1,2],[3,4]]");
 
-        assert_eq!(serde_json::from_str::<ClientToServerMessage>("void").unwrap(), 
+        assert_eq!(serde_json::from_str::<ClientToServerMessage>("\"void\"").unwrap(), 
             ClientToServerMessage::Void(JSONVoid::Void));
         assert_eq!(serde_json::from_str::<ClientToServerMessage>("[2,1]").unwrap(), 
             ClientToServerMessage::Position([2,1]));
