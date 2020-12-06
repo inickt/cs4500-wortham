@@ -105,8 +105,8 @@ impl fmt::Debug for GameState {
                 }
             }).join(", ");
 
-            writeln!(f, "Player {} (P{}) - score: {} - penguins: [{}] {}",
-                player_id.0, player_id.0, player.score, penguins, current_player_str)?;
+            writeln!(f, "Player {} - {:?} - score: {} - penguins: [{}] {}",
+                player_id.0, player.color, player.score, penguins, current_player_str)?;
         }
 
         writeln!(f, "")

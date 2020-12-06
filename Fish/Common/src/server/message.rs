@@ -142,12 +142,15 @@ fn serialize_players(gamestate: &GameState) -> Vec<JSONPlayer> {
     let mut json_players = util::map_slice(&gamestate.turn_order, |id| {
         serialize_player(&gamestate.players[id], &gamestate.board)
     });
+
     // current player should be first
-    let current_turn_index = gamestate.players.iter().position(|player| {
-        *player.0 == gamestate.current_turn
+    let current_turn_index = gamestate.turn_order.iter().position(|player| {
+        *player == gamestate.current_turn
     }).unwrap();
 
     json_players.rotate_left(current_turn_index);
+
+    eprintln!("Sending {:?}", json_players);
     json_players
 }
 
@@ -162,6 +165,8 @@ impl JSONGameState {
     pub fn to_common_game_state(self, player_count: usize) -> GameState {
         let board = Board::from_tiles(self.board);
 
+        eprintln!("Receiving {:?}", self.players);
+
         // Use the passed-in original player count rather than self.players.len()
         // in case some players have been kicked, so that we can still give the
         // correct penguin count to each player.
@@ -171,7 +176,8 @@ impl JSONGameState {
         assert_eq!(gamestate.turn_order.len(), self.players.len());
 
         for (id, json_player) in gamestate.turn_order.iter().zip(self.players.iter()) {
-            gamestate.players.insert(*id, json_player.to_common_player(*id, &gamestate, player_count));
+            let player = json_player.to_common_player(*id, &gamestate, player_count);
+            gamestate.players.insert(*id, player);
         }
 
         gamestate
