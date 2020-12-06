@@ -248,8 +248,9 @@ mod tests {
 
     fn make_player_fails_to_accept(port: usize) -> Box<dyn Client> {
         let stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("Could not connect stream");
+        let client = Box::new(RemoteClient::new(stream.try_clone().unwrap(), Duration::from_millis(100)));
         stream.shutdown(Shutdown::Both).expect("Failed to shutdown TcpStream");
-        Box::new(RemoteClient::new(stream, Duration::from_millis(100)))
+        client
     }
 
     fn make_remote_player(port: usize) -> Box<dyn Client> {
@@ -302,23 +303,24 @@ mod tests {
     /// Same tournament as above, but with all remote players. Expect the same results.
     #[test]
     fn test_run_remote_tournament() {
-        let timeout = Duration::from_millis(100);
+        let timeout = Duration::from_secs(2);
 
         let threads: Vec<_> = (0..8).map(|_| {
             std::thread::spawn(move || {
-                let ai = AIClient::with_zigzag_minmax_strategy();
-                ClientToServerProxy::new("name".to_string(), Box::new(ai), "127.0.0.1:8081", timeout)
+                std::thread::sleep(Duration::from_secs(1));
+                let ai = AIClient::new(Box::new(SimpleStrategy));
+                ClientToServerProxy::new("name".to_string(), Box::new(ai), "127.0.0.1:8081", Duration::from_secs(30))
                     .expect("Unable to create client to server proxy")
                     .tournament_loop()
                     .expect("Remote player was kicked before tournament finished");
             })
         }).collect();
 
-        let players = signup::signup_clients(8081, timeout).expect("Couldn't signup clients!");
+        let players = signup::signup_clients(8081, timeout, timeout).expect("Couldn't signup clients!");
         run_tournament_with_players(players);
 
         for thread in threads {
-            thread.join().ok();
+            thread.join().expect("Client thread crashed.");
         }
     }
 

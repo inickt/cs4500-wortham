@@ -6,8 +6,8 @@ use fish::common::board::Board;
 
 use std::time::Duration;
 
-// TODO move back to 1s
-const REMOTE_CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+const SIGNUP_TIMEOUT: Duration = Duration::from_secs(30);
+const REMOTE_CLIENT_TIMEOUT: Duration = Duration::from_secs(1);
 const USAGE: &str = "usage: ./xserver <port>";
 
 fn main() {
@@ -16,7 +16,7 @@ fn main() {
 }
 
 fn run_tournament(port: usize) {
-    match signup::signup_clients(port, REMOTE_CLIENT_TIMEOUT) {
+    match signup::signup_clients(port, REMOTE_CLIENT_TIMEOUT, SIGNUP_TIMEOUT) {
         Some(clients) => { 
             let boxed_clients = clients.into_iter().map(|c| Box::new(c) as Box<dyn Client>).collect();
             let board = Board::with_no_holes(5, 5, 2);
