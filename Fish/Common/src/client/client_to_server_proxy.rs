@@ -69,7 +69,7 @@ impl ClientToServerProxy {
         }
     }
 
-    fn send_name(&mut self) -> Option<()> {
+    pub fn send_name(&mut self) -> Option<()> {
         let json_name = serde_json::to_string(&self.name).ok()?;
         self.stream.write(json_name.as_bytes()).ok()?;
         Some(())
