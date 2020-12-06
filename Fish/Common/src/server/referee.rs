@@ -92,7 +92,6 @@ pub fn run_game_shared(clients: &[ClientWithId], board: Option<Board>) -> GameRe
     referee.initialize_clients();
 
     while !referee.is_game_over() {
-        eprintln!("{:?}", referee.phase.get_state());
         referee.do_player_turn();
     }
 
@@ -232,9 +231,6 @@ impl Referee {
     /// they were kicked.
     fn kick_player(&mut self, player: PlayerId) {
         self.phase.get_state_mut().remove_player(player);
-
-        eprintln!("Kicking player {}!", player.0);
-        std::thread::sleep_ms(5000);
 
         self.clients.iter_mut()
             .find(|client| client.id == player)

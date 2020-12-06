@@ -149,8 +149,6 @@ fn serialize_players(gamestate: &GameState) -> Vec<JSONPlayer> {
     }).unwrap();
 
     json_players.rotate_left(current_turn_index);
-
-    eprintln!("Sending {:?}", json_players);
     json_players
 }
 
@@ -164,8 +162,6 @@ pub fn serialize_gamestate(gamestate: &GameState) -> JSONGameState {
 impl JSONGameState {
     pub fn to_common_game_state(self, player_count: usize) -> GameState {
         let board = Board::from_tiles(self.board);
-
-        eprintln!("Receiving {:?}", self.players);
 
         // Use the passed-in original player count rather than self.players.len()
         // in case some players have been kicked, so that we can still give the
